@@ -12,14 +12,14 @@ RUN apk add --no-cache \
 # Set working directory
 WORKDIR /app
 
-# Copy package files
-COPY package.json package-lock.json ./
+# Copy package files (build context is the repo ROOT, so we reach into backend/)
+COPY backend/package.json backend/package-lock.json ./
 
 # Install dependencies
 RUN npm ci --only=production
 
 # Copy application code
-COPY server.js db.js queue.js ./
+COPY backend/server.js backend/db.js backend/queue.js ./
 
 # Create directory for SQLite database
 RUN mkdir -p /app/data
@@ -36,7 +36,4 @@ ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
 ENV NODE_ENV=production
 
 # Start application
-# node:sqlite needs --experimental-sqlite on Node 22.x (it's only unflagged
-# by default in later Node versions) — without this flag db.js's require()
-# fails and the backend exits with a FATAL "requires Node.js v22.5+" message.
 CMD ["node", "--experimental-sqlite", "server.js"]
