@@ -1,0 +1,63 @@
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: rfp-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    command: redis-server --appendonly yes
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: ../Dockerfile
+    container_name: rfp-backend
+    ports:
+      - "3001:3001"
+    env_file:
+      - ./backend/.env.development
+    environment:
+      # These override whatever's in .env.development on purpose — inside
+      # Docker, Redis and the data folder are reached at different
+      # addresses than on your local machine, so they must stay fixed here.
+      - PORT=3001
+      - NODE_ENV=development
+      - REDIS_URL=redis://redis:6379
+      - DATABASE_PATH=/app/data/rfp.db
+    volumes:
+      - ./backend:/app
+      - backend_data:/app/data
+      - /app/node_modules
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3001/health', (r) => {if (r.statusCode !== 200) throw new Error(r.statusCode)})"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  frontend:
+    image: nginx:alpine
+    container_name: rfp-frontend
+    ports:
+      - "8080:80"
+    volumes:
+      - ./frontend:/usr/share/nginx/html:ro
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - backend
+
+volumes:
+  redis_data:
+  backend_data:
+
+networks:
+  default:
+    name: rfp-network

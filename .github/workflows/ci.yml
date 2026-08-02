@@ -1,0 +1,73 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        node-version: [22.5.0]
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Use Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+        cache-dependency-path: backend/package-lock.json
+    
+    - name: Install backend dependencies
+      run: cd backend && npm ci
+    
+    - name: Run linter
+      run: cd backend && npm run lint
+      continue-on-error: false
+    
+    - name: Check for syntax errors
+      run: cd backend && npm run check-syntax
+    
+    - name: Verify environment setup
+      run: |
+        echo "Node version: $(node --version)"
+        echo "npm version: $(npm --version)"
+    
+    - name: Run backend tests
+      run: cd backend && npm run test
+      continue-on-error: true
+    
+    - name: Build check (if applicable)
+      run: cd backend && npm run build
+      continue-on-error: true
+
+  frontend:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Validate HTML syntax
+      run: |
+        if command -v html5-lint &> /dev/null; then
+          html5-lint frontend/index.html
+        else
+          echo "HTML5 lint not available, skipping"
+        fi
+      continue-on-error: true
+    
+    - name: Check frontend file integrity
+      run: |
+        if [ -f frontend/index.html ]; then
+          echo "✓ Frontend index.html exists"
+          wc -l frontend/index.html
+        else
+          echo "✗ Frontend index.html missing"
+          exit 1
+        fi

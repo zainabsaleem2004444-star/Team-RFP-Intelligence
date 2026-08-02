@@ -1,0 +1,36 @@
+{
+  "name": "rfp-intelligence-backend",
+  "version": "2.0.0",
+  "description": "SPS RFP Intelligence Portal Backend",
+  "main": "server.js",
+  "engines": {
+    "node": ">=22.5.0"
+  },
+  "scripts": {
+    "start": "node --experimental-sqlite server.js",
+    "dev": "nodemon --exec \"node --experimental-sqlite\" server.js",
+    "lint": "eslint . --ext .js --ignore-pattern node_modules",
+    "lint:fix": "eslint . --ext .js --ignore-pattern node_modules --fix",
+    "check-syntax": "node --check server.js && node --check db.js && node --check queue.js",
+    "test": "jest --passWithNoTests",
+    "test:watch": "jest --watch"
+  },
+  "dependencies": {
+    "bullmq": "^5.81.1",
+    "cors": "^2.8.6",
+    "dotenv": "^16.3.1",
+    "express": "^4.22.2",
+    "express-rate-limit": "^8.5.2",
+    "ioredis": "^5.11.1",
+    "multer": "^2.2.0",
+    "nodemailer": "^9.0.3",
+    "pdf-parse": "^1.1.1",
+    "pdfkit": "^0.19.1",
+    "puppeteer": "^25.4.0"
+  },
+  "devDependencies": {
+    "eslint": "^8.56.0",
+    "jest": "^29.7.0",
+    "nodemon": "^3.0.2"
+  }
+}

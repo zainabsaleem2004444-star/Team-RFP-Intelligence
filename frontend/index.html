@@ -1,0 +1,3427 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>RFP Intelligence Portal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    /* --- Briefing Desk palette: warm dossier tones, medium canvas + ---
+       --- crisp paper-white cards, built for someone reading a case ---
+       --- file, not a terminal. Neither stark-white nor near-black. --- */
+    --bg: #d8cebb;
+    --bg-grid: rgba(60,45,20,0.045);
+    --panel: #fdfbf6;
+    --panel-2: #f3ede1;
+    --panel-border: #cabfa5;
+    --panel-border-soft: #e2d8c3;
+    --ink: #2b2620;
+    --muted: #6e6656;
+    --muted-dim: #948a72;
+
+    --accent: #2f7d8c;         /* deep briefing-room teal — primary */
+    --accent-soft: rgba(47,125,140,0.16);
+    --accent-dim: #163c46;
+
+    --go: #2e9e6c;
+    --go-soft: rgba(46,158,108,0.16);
+    --caution: #a8720a;
+    --caution-soft: rgba(168,114,10,0.17);
+    --nogo: #c24444;
+    --nogo-soft: rgba(194,68,68,0.16);
+
+    --mono: 'IBM Plex Mono', 'SF Mono', Consolas, monospace;
+    --sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --display: 'Space Grotesk', 'Inter', sans-serif;
+
+    --radius: 10px;
+    --shadow-soft: 0 1px 0 rgba(255,255,255,0.6) inset, 0 8px 24px rgba(43,38,32,0.14);
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  html{scroll-behavior:smooth;}
+  body{
+    background:
+      radial-gradient(circle at 1px 1px, var(--bg-grid) 1px, transparent 0) 0 0/22px 22px,
+      radial-gradient(ellipse 900px 500px at 15% -10%, rgba(47,125,140,0.06), transparent 60%),
+      var(--bg);
+    color:var(--ink);
+    font-family:var(--sans);
+    min-height:100vh;
+    line-height:1.5;
+  }
+  ::selection{background:var(--accent-soft);color:var(--ink);}
+  :focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px;}
+
+  .app{display:flex;flex-direction:column;min-height:100vh;}
+
+  /* ---------- header ---------- */
+  header{
+    border-bottom:1px solid var(--panel-border-soft);
+    padding:16px 28px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    background:linear-gradient(180deg, rgba(47,125,140,0.05), transparent);
+    backdrop-filter:blur(6px);
+    position:sticky;top:0;z-index:20;
+  }
+  .brand{display:flex;align-items:center;gap:12px;}
+  .brand-mark{
+    width:38px;height:38px;border-radius:9px;
+    background:linear-gradient(135deg,#2f7d8c,#2e9e6c);
+    display:flex;align-items:center;justify-content:center;
+    font-size:18px;flex-shrink:0;
+    box-shadow:0 4px 14px rgba(47,125,140,0.25);
+  }
+  .brand-text h1{font-family:var(--display);font-size:16.5px;font-weight:700;letter-spacing:0.2px;}
+  .brand-text p{font-size:11px;color:var(--muted);font-family:var(--mono);letter-spacing:1px;text-transform:uppercase;margin-top:1px;}
+  .header-right{display:flex;align-items:center;gap:10px;}
+  .engine-badge{
+    font-family:var(--mono);font-size:11px;color:var(--muted);
+    border:1px solid var(--panel-border);border-radius:20px;
+    padding:5px 12px;display:flex;align-items:center;gap:6px;
+  }
+  .engine-badge .dot{width:6px;height:6px;border-radius:50%;background:var(--go);box-shadow:0 0 8px var(--go);}
+  .history-toggle{
+    display:none;
+    font-family:var(--mono);font-size:11px;color:var(--ink);
+    border:1px solid var(--panel-border);background:var(--panel);border-radius:20px;
+    padding:6px 14px;cursor:pointer;align-items:center;gap:6px;
+  }
+
+  /* ---------- layout ---------- */
+  main{flex:1;display:grid;grid-template-columns:250px 380px 1fr;min-height:0;}
+  @media (max-width: 1180px){ main{grid-template-columns:220px 340px 1fr;} }
+  @media (max-width: 900px){
+    main{grid-template-columns:1fr;}
+    .history-sidebar{
+      position:fixed;inset:0 0 0 auto;width:290px;z-index:40;
+      transform:translateX(100%);transition:transform .2s ease;
+      box-shadow:-20px 0 40px rgba(0,0,0,0.5);
+    }
+    .history-sidebar.open{transform:translateX(0);}
+    .history-toggle{display:inline-flex;}
+    .history-backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:35;}
+    .history-backdrop.open{display:block;}
+  }
+
+  /* ---------- history sidebar (signature element: case-file index) ---------- */
+  .history-sidebar{
+    border-right:1px solid var(--panel-border-soft);
+    background:var(--panel-2);
+    padding:22px 16px;
+    overflow-y:auto;
+    display:flex;flex-direction:column;
+  }
+  .history-head{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:4px;}
+  .history-head h2{font-family:var(--display);font-size:12.5px;font-weight:700;letter-spacing:0.4px;}
+  .history-count{font-family:var(--mono);font-size:10.5px;color:var(--muted-dim);}
+  .history-sub{font-size:10.5px;color:var(--muted-dim);font-family:var(--mono);margin-bottom:16px;letter-spacing:0.3px;}
+
+  .history-empty{
+    flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    text-align:center;color:var(--muted-dim);gap:8px;padding:30px 10px;
+  }
+  .history-empty .g{font-size:22px;opacity:0.5;}
+  .history-empty p{font-size:11.5px;line-height:1.5;}
+
+  .history-list{list-style:none;display:flex;flex-direction:column;gap:8px;flex:1;}
+  .history-item{
+    position:relative;
+    background:var(--panel);border:1px solid var(--panel-border);
+    border-left:3px solid var(--muted-dim);
+    border-radius:7px;padding:10px 12px 10px 30px;
+    cursor:pointer;transition:border-color .12s, background .12s, transform .08s;
+  }
+  .history-item:hover{background:var(--panel-2);transform:translateX(2px);}
+  .history-item.active{background:var(--accent-soft);border-color:rgba(47,125,140,0.35);}
+  .history-item.go{border-left-color:var(--go);}
+  .history-item.caution{border-left-color:var(--caution);}
+  .history-item.nogo{border-left-color:var(--nogo);}
+  .history-item .h-top{display:flex;align-items:center;justify-content:between;gap:8px;margin-bottom:5px;}
+  .history-item .h-idx{font-family:var(--mono);font-size:9.5px;color:var(--muted-dim);letter-spacing:0.5px;}
+  .history-item .h-score{
+    font-family:var(--mono);font-size:11px;font-weight:700;margin-left:auto;
+  }
+  .history-item.go .h-score{color:var(--go);}
+  .history-item.caution .h-score{color:var(--caution);}
+  .history-item.nogo .h-score{color:var(--nogo);}
+  .history-item .h-name{
+    font-size:12px;font-weight:600;color:var(--ink);
+    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
+    margin-bottom:3px;line-height:1.35;
+  }
+  .history-item .h-date{font-size:10px;color:var(--muted-dim);font-family:var(--mono);}
+  .history-item .h-cats, .history-item .h-pages{
+    font-size:10px;color:var(--muted);line-height:1.4;margin-top:4px;
+    display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden;
+  }
+  .history-item .h-pages{font-family:var(--mono);color:var(--muted-dim);}
+  .history-item .h-remove{
+    position:absolute;top:6px;right:6px;background:none;border:none;color:var(--muted-dim);
+    font-size:12px;cursor:pointer;padding:3px 5px;border-radius:4px;opacity:0;transition:opacity .12s;
+  }
+  .history-item:hover .h-remove{opacity:1;}
+  .history-item .h-remove:hover{color:var(--nogo);background:rgba(194,68,68,0.1);}
+
+  /* Phase 3, item #11 — compare checkbox on each history entry */
+  .h-compare-check{
+    position:absolute;top:11px;left:8px;width:14px;height:14px;cursor:pointer;accent-color:var(--accent);
+  }
+  .history-clear.compare-btn{
+    border-style:solid;border-color:var(--accent);color:var(--accent);font-weight:700;margin-top:10px;
+  }
+  .history-clear.compare-btn:hover{background:var(--accent-soft);}
+
+  .compare-view{padding-bottom:20px;}
+  .compare-table-wrap{overflow-x:auto;border:1px solid var(--panel-border);border-radius:12px;}
+  .compare-table{width:100%;border-collapse:collapse;font-size:12.5px;min-width:520px;}
+  .compare-table th, .compare-table td{
+    padding:10px 14px;text-align:left;border-bottom:1px solid var(--panel-border-soft);white-space:nowrap;
+  }
+  .compare-table thead th{
+    background:var(--panel-alt, rgba(139,146,166,0.08));font-family:var(--display);font-weight:700;color:var(--ink);
+    max-width:220px;white-space:normal;
+  }
+  .compare-table td.cmp-label{
+    font-weight:700;color:var(--muted);font-family:var(--mono);font-size:11px;white-space:normal;
+  }
+  .compare-table tbody tr:last-child td{border-bottom:none;}
+  .cmp-rec{font-weight:800;padding:2px 9px;border-radius:20px;font-size:11px;}
+  .cmp-rec.go{background:var(--go-soft);color:var(--go);}
+  .cmp-rec.caution{background:var(--caution-soft);color:var(--caution);}
+  .cmp-rec.nogo{background:var(--nogo-soft);color:var(--nogo);}
+
+  .history-clear{
+    margin-top:14px;width:100%;background:none;border:1px dashed var(--panel-border);
+    color:var(--muted);border-radius:7px;padding:8px;font-size:11px;font-family:var(--mono);
+    cursor:pointer;transition:border-color .12s,color .12s;
+  }
+  .history-clear:hover{border-color:var(--nogo);color:var(--nogo);}
+
+  /* ---- Source strip + batch tabs (multi-document results) ---- */
+  .source-strip{
+    display:flex;align-items:center;gap:9px;margin-bottom:14px;
+    font-size:12px;color:var(--muted);
+  }
+  .source-strip .ss-name{font-weight:700;color:var(--ink);font-family:var(--display);}
+  .source-strip .ss-date{font-family:var(--mono);font-size:10.5px;color:var(--muted-dim);}
+  .source-strip .ss-tag{
+    font-family:var(--mono);font-size:9.5px;letter-spacing:0.4px;text-transform:uppercase;
+    background:var(--accent-soft);color:var(--accent);padding:2px 8px;border-radius:20px;
+  }
+
+  .batch-tabs{
+    display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px;
+    padding-bottom:14px;border-bottom:1px solid var(--panel-border-soft);
+  }
+  .batch-tab{
+    display:flex;align-items:center;gap:8px;
+    background:var(--panel);border:1px solid var(--panel-border);border-left:3px solid var(--muted-dim);
+    border-radius:7px;padding:7px 12px;cursor:pointer;font-family:var(--sans);
+    transition:border-color .12s, background .12s;
+  }
+  .batch-tab:hover{background:var(--panel-2);}
+  .batch-tab.go{border-left-color:var(--go);}
+  .batch-tab.caution{border-left-color:var(--caution);}
+  .batch-tab.nogo{border-left-color:var(--nogo);}
+  .batch-tab.active{background:var(--accent-soft);border-color:rgba(47,125,140,0.35);}
+  .batch-tab .bt-name{font-size:12px;font-weight:600;color:var(--ink);max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .batch-tab .bt-score{font-family:var(--mono);font-size:11px;font-weight:700;color:var(--muted);}
+  .batch-tab.go .bt-score{color:var(--go);}
+  .batch-tab.caution .bt-score{color:var(--caution);}
+  .batch-tab.nogo .bt-score{color:var(--nogo);}
+
+  .batch-progress{font-family:var(--mono);font-size:10.5px;color:var(--muted-dim);margin-top:8px;text-align:center;}
+
+  .file-chip-error{border-color:rgba(194,68,68,0.4);}
+  .file-chip-done{border-color:rgba(46,158,108,0.35);}
+  .file-chip-analysing{border-color:rgba(47,125,140,0.4);}
+
+  .panel-left{
+    border-right:1px solid var(--panel-border-soft);
+    padding:26px 24px;
+    overflow-y:auto;
+  }
+  .panel-right{
+    padding:28px 36px;
+    overflow-y:auto;
+  }
+
+  .section-label{
+    font-family:var(--mono);font-size:10.5px;letter-spacing:1.4px;
+    color:var(--accent);text-transform:uppercase;margin-bottom:10px;
+    display:flex;align-items:center;gap:8px;font-weight:600;
+  }
+  .section-label .num{
+    color:var(--muted-dim);
+  }
+
+  /* ---------- upload box ---------- */
+  .dropzone{
+    border:1.5px dashed var(--panel-border);
+    border-radius:var(--radius);
+    padding:26px 16px;
+    text-align:center;
+    cursor:pointer;
+    transition:border-color .15s, background .15s;
+    margin-bottom:14px;
+  }
+  .dropzone:hover, .dropzone.drag{
+    border-color:var(--accent);
+    background:var(--accent-soft);
+  }
+  .dropzone .icon{font-size:24px;margin-bottom:8px;}
+  .dropzone .main-txt{font-size:13px;font-weight:600;}
+  .dropzone .sub-txt{font-size:11px;color:var(--muted);margin-top:4px;font-family:var(--mono);}
+
+  .file-chip{
+    display:flex;align-items:center;gap:10px;
+    background:var(--panel);border:1px solid var(--panel-border);
+    border-radius:8px;padding:10px 12px;margin-bottom:14px;
+  }
+  .file-chip .ficon{font-size:16px;}
+  .file-chip .finfo{flex:1;min-width:0;}
+  .file-chip .fname{font-size:12.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .file-chip .fsize{font-size:10.5px;color:var(--muted);font-family:var(--mono);}
+  .file-chip .fremove{
+    background:none;border:none;color:var(--muted);cursor:pointer;font-size:15px;
+    padding:2px 6px;border-radius:4px;
+  }
+  .file-chip .fremove:hover{color:var(--nogo);background:rgba(194,68,68,0.1);}
+
+  textarea.context{
+    width:100%;background:var(--panel);border:1px solid var(--panel-border);
+    border-radius:8px;color:var(--ink);font-family:var(--sans);font-size:12.5px;
+    padding:10px 12px;resize:vertical;min-height:64px;margin-bottom:14px;
+  }
+  textarea.context:focus{outline:none;border-color:var(--accent);}
+  textarea.context::placeholder{color:var(--muted-dim);}
+
+  label.field-label{
+    font-size:11.5px;color:var(--muted);display:block;margin-bottom:6px;font-weight:600;
+  }
+
+  button.primary{
+    width:100%;background:linear-gradient(135deg,var(--accent),#2a95a3);color:#fff;border:none;
+    border-radius:8px;padding:13px;font-size:13.5px;font-weight:700;
+    cursor:pointer;transition:filter .15s, transform .08s;
+    font-family:var(--sans);letter-spacing:0.2px;
+    box-shadow:0 6px 18px rgba(47,125,140,0.22);
+  }
+  button.primary:hover:not(:disabled){filter:brightness(1.08);}
+  button.primary:active:not(:disabled){transform:scale(0.99);}
+  button.primary:disabled{background:var(--accent-dim);cursor:not-allowed;color:rgba(255,255,255,0.45);box-shadow:none;}
+
+  .error-box{
+    margin-top:14px;background:var(--nogo-soft);border:1px solid rgba(194,68,68,0.35);
+    border-radius:8px;padding:12px 14px;font-size:12px;color:#8a2f2f;line-height:1.5;
+  }
+  .error-box .etitle{font-weight:700;color:var(--nogo);margin-bottom:4px;}
+
+  /* ---------- Home dashboard (shown before any analysis is loaded) ---------- */
+  .home-dashboard{flex:1;padding-bottom:8px;}
+  .home-hero{
+    background:linear-gradient(135deg, var(--accent-soft), transparent 70%), var(--panel);
+    border:1px solid var(--panel-border-soft);border-radius:14px;
+    padding:26px 28px;margin-bottom:22px;
+    display:flex;align-items:center;justify-content:space-between;gap:20px;flex-wrap:wrap;
+  }
+  .home-hero .hh-eyebrow{
+    font-family:var(--mono);font-size:10.5px;letter-spacing:1.4px;text-transform:uppercase;
+    color:var(--accent);font-weight:700;margin-bottom:8px;
+  }
+  .home-hero h1{font-family:var(--display);font-size:22px;font-weight:700;color:var(--ink);margin-bottom:8px;letter-spacing:-0.2px;}
+  .home-hero p{font-size:13.5px;color:var(--muted);max-width:480px;line-height:1.55;}
+  .home-hero-actions{display:flex;flex-direction:column;gap:8px;flex-shrink:0;}
+  .home-hero-btn{
+    font-family:var(--sans);font-size:12.5px;font-weight:700;color:#fff;
+    background:linear-gradient(135deg,var(--accent),#2a95a3);border:none;border-radius:9px;
+    padding:11px 20px;cursor:pointer;white-space:nowrap;box-shadow:0 6px 16px rgba(47,125,140,0.22);
+    transition:filter .15s;
+  }
+  .home-hero-btn:hover{filter:brightness(1.08);}
+  .home-hero-btn.secondary{
+    background:var(--panel);color:var(--ink);border:1px solid var(--panel-border);
+    box-shadow:none;
+  }
+  .home-hero-btn.secondary:hover{border-color:var(--accent);color:var(--accent);}
+
+  .home-steps{
+    display:flex;gap:12px;margin-bottom:26px;flex-wrap:wrap;
+  }
+  .home-step{
+    flex:1;min-width:180px;background:var(--panel);border:1px solid var(--panel-border-soft);
+    border-radius:11px;padding:14px 16px;display:flex;gap:12px;align-items:flex-start;
+  }
+  .home-step .hs-num{
+    font-family:var(--display);font-size:15px;font-weight:700;color:var(--accent);
+    background:var(--accent-soft);width:26px;height:26px;border-radius:50%;
+    display:flex;align-items:center;justify-content:center;flex-shrink:0;
+  }
+  .home-step h4{font-size:12.5px;font-weight:700;color:var(--ink);margin-bottom:3px;}
+  .home-step p{font-size:11.5px;color:var(--muted);line-height:1.5;}
+
+  .home-section-label{
+    font-family:var(--mono);font-size:10.5px;letter-spacing:1.2px;text-transform:uppercase;
+    color:var(--muted-dim);font-weight:700;margin-bottom:12px;
+  }
+  .capability-grid{
+    display:grid;grid-template-columns:repeat(auto-fill, minmax(230px, 1fr));gap:14px;
+  }
+  .cap-card{
+    background:var(--panel);border:1px solid var(--panel-border-soft);border-radius:12px;
+    padding:17px 18px;display:flex;flex-direction:column;gap:9px;
+    transition:border-color .15s, transform .1s, box-shadow .15s;
+  }
+  .cap-card:hover{border-color:var(--accent);box-shadow:0 8px 20px rgba(43,38,32,0.08);transform:translateY(-1px);}
+  .cap-card .cap-top{display:flex;align-items:center;gap:10px;}
+  .cap-card .cap-icon{
+    width:36px;height:36px;border-radius:9px;background:var(--accent-soft);
+    display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0;
+  }
+  .cap-card h3{font-size:13.5px;font-weight:700;color:var(--ink);}
+  .cap-card p{font-size:11.8px;color:var(--muted);line-height:1.5;flex:1;}
+  .cap-card .cap-tag{
+    font-family:var(--mono);font-size:9px;letter-spacing:0.4px;text-transform:uppercase;
+    color:var(--accent);background:var(--accent-soft);border-radius:20px;
+    padding:2px 9px;display:inline-flex;width:fit-content;font-weight:700;
+  }
+  .cap-card .cap-cta{
+    font-family:var(--sans);font-size:11.8px;font-weight:700;color:var(--accent);
+    background:none;border:none;cursor:pointer;text-align:left;padding:0;margin-top:2px;
+    display:inline-flex;align-items:center;gap:5px;
+  }
+  .cap-card .cap-cta:hover{text-decoration:underline;}
+  .cap-card .cap-hint{font-family:var(--mono);font-size:10px;color:var(--muted-dim);margin-top:2px;}
+  @keyframes homePulse{
+    0%,100%{box-shadow:0 0 0 0 var(--accent-soft);}
+    50%{box-shadow:0 0 0 6px var(--accent-soft);}
+  }
+  .home-pulse{animation:homePulse 1s ease 2;border-radius:10px;}
+
+  .loading-state{
+    flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    min-height:420px;gap:16px;
+  }
+  .spinner{
+    width:32px;height:32px;border-radius:50%;
+    border:3px solid var(--panel-border);border-top-color:var(--accent);
+    animation:spin 0.8s linear infinite;
+  }
+  @keyframes spin{to{transform:rotate(360deg);}}
+  .loading-state p{font-family:var(--mono);font-size:12px;color:var(--muted);}
+
+  .step-list{
+    display:flex;flex-direction:column;gap:10px;
+    font-family:var(--mono);font-size:12px;min-width:280px;
+  }
+  .step-item{display:flex;align-items:center;gap:10px;color:var(--muted);}
+  .step-item .step-icon{
+    width:16px;height:16px;flex:0 0 16px;border-radius:50%;
+    border:2px solid var(--panel-border);display:flex;align-items:center;justify-content:center;
+  }
+  .step-item.done{color:var(--ink);}
+  .step-item.done .step-icon{border-color:var(--accent);background:var(--accent);color:#fff;font-size:10px;}
+  .step-item.active{color:var(--ink);font-weight:600;}
+  .step-item.active .step-icon{border-color:var(--accent);}
+  .step-item.active .step-icon .mini-spin{
+    width:8px;height:8px;border-radius:50%;
+    border:2px solid var(--panel-border);border-top-color:var(--accent);
+    animation:spin 0.8s linear infinite;
+  }
+
+  /* ---------- results ---------- */
+
+  .deadline-banner{
+    display:flex;align-items:center;gap:12px;
+    background:var(--nogo-soft);border:1px solid rgba(194,68,68,0.45);
+    border-radius:var(--radius);padding:14px 18px;margin-bottom:18px;
+    font-size:13px;color:#8a2f2f;font-weight:600;
+  }
+  .deadline-banner.unknown{
+    background:var(--caution-soft);border-color:rgba(168,114,10,0.4);color:var(--caution);
+  }
+  .deadline-banner.urgent{
+    background:var(--caution-soft);border-color:rgba(168,114,10,0.4);color:var(--caution);
+  }
+  .deadline-banner .dicon{font-size:18px;flex-shrink:0;}
+
+  /* Phase 2, item #5 — confidence summary banner */
+  .confidence-banner{
+    display:flex;align-items:center;gap:12px;
+    border-radius:var(--radius);padding:14px 18px;margin-bottom:18px;
+    font-size:13px;font-weight:600;
+  }
+  .confidence-banner.needs-review{
+    background:var(--caution-soft);border:1px solid rgba(168,114,10,0.4);color:var(--caution);
+  }
+  .confidence-banner.clear{
+    background:var(--go-soft);border:1px solid rgba(46,158,108,0.35);color:var(--go);
+  }
+  .confidence-banner .dicon{font-size:18px;flex-shrink:0;}
+  .confidence-banner strong{font-weight:800;}
+
+  /* Phase 3, item #7 — second-model cross-check banner */
+  .crosscheck-banner{
+    display:flex;align-items:center;gap:12px;
+    border-radius:var(--radius);padding:14px 18px;margin-bottom:18px;
+    font-size:13px;font-weight:600;
+  }
+  .crosscheck-banner.disagreement{
+    background:var(--caution-soft);border:1px solid rgba(168,114,10,0.4);color:var(--caution);
+  }
+  .crosscheck-banner.agree{
+    background:var(--go-soft);border:1px solid rgba(46,158,108,0.35);color:var(--go);
+  }
+  .crosscheck-banner .dicon{font-size:18px;flex-shrink:0;}
+  .crosscheck-banner ul{margin:6px 0 0;padding-left:18px;font-weight:500;}
+  .crosscheck-banner li{margin-bottom:2px;}
+
+  /* Phase 3, item #8 — multi-agent proposal pipeline panel */
+  .proposal-panel{
+    margin-top:28px;border:1px solid var(--panel-border);border-radius:12px;
+    padding:20px 22px;background:var(--panel);
+  }
+  .proposal-panel h3.block-title{margin-bottom:10px;}
+  .proposal-agent-trail{
+    display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px;font-family:var(--mono);
+    font-size:11px;color:var(--muted);
+  }
+  .proposal-agent-trail span{
+    background:var(--panel-alt, rgba(139,146,166,0.12));border:1px solid var(--panel-border-soft);
+    border-radius:6px;padding:3px 9px;
+  }
+  .proposal-section{margin-bottom:16px;}
+  .proposal-section h4{font-size:12px;font-weight:700;color:var(--ink);margin-bottom:6px;}
+  .proposal-section ul{margin:0;padding-left:18px;font-size:12.5px;color:var(--ink);opacity:0.9;}
+  .proposal-section li{margin-bottom:3px;}
+  .proposal-text{
+    white-space:pre-wrap;font-family:var(--sans);font-size:12.5px;line-height:1.6;color:var(--ink);
+    background:var(--bg, transparent);border:1px solid var(--panel-border-soft);border-radius:9px;
+    padding:16px 18px;max-height:480px;overflow-y:auto;
+  }
+  .proposal-review-ok{color:var(--go);font-weight:700;font-size:12.5px;margin-bottom:10px;}
+
+  /* Phase 3, item #12 — addendum diff added/removed paragraph blocks */
+  .addendum-added, .addendum-removed{
+    font-size:12px;line-height:1.55;border-radius:8px;padding:8px 12px;margin:6px 0;
+    font-family:var(--sans);
+  }
+  .addendum-added{
+    background:var(--go-soft);border:1px solid rgba(46,158,108,0.3);color:var(--ink);
+  }
+  .addendum-added::before{content:"+ "; color:var(--go); font-weight:800;}
+  .addendum-removed{
+    background:var(--nogo-soft);border:1px solid rgba(194,68,68,0.3);color:var(--muted);
+    text-decoration:line-through;text-decoration-color:rgba(194,68,68,0.5);
+  }
+  .addendum-removed::before{content:"- "; color:var(--nogo); font-weight:800;text-decoration:none;display:inline;}
+  .proposal-panel details{margin-top:8px;}
+  .proposal-panel summary{cursor:pointer;font-size:12px;font-weight:700;color:var(--muted);margin-bottom:4px;}
+
+  /* Phase 4, item #15 — "Chat with this RFP" panel */
+  .chat-panel{
+    margin-top:28px;border:1px solid var(--panel-border);border-radius:12px;
+    padding:20px 22px;background:var(--panel);
+  }
+  .chat-panel h3.block-title{margin-bottom:10px;}
+  .chat-hint{font-size:11.5px;color:var(--muted);margin-bottom:14px;}
+  .chat-thread{
+    display:flex;flex-direction:column;gap:14px;max-height:460px;overflow-y:auto;
+    margin-bottom:14px;padding-right:4px;
+  }
+  .chat-empty{font-size:12px;color:var(--muted-dim);font-style:italic;padding:6px 0;}
+  .chat-turn .chat-q{
+    font-family:var(--sans);font-size:12.5px;font-weight:700;color:var(--ink);
+    background:var(--panel-alt, rgba(139,146,166,0.1));border-radius:8px 8px 8px 2px;
+    padding:8px 12px;margin-bottom:6px;display:inline-block;max-width:90%;
+  }
+  .chat-turn .chat-a{
+    font-family:var(--sans);font-size:12.5px;line-height:1.55;color:var(--ink);opacity:0.92;
+    border:1px solid var(--panel-border-soft);border-radius:8px 8px 2px 8px;
+    padding:10px 14px;
+  }
+  .chat-turn .chat-a.not-found{border-color:rgba(194,68,68,0.3);}
+  .chat-source{
+    margin-top:8px;font-size:11px;color:var(--muted);border-left:2px solid var(--accent, #8b93a8);
+    padding-left:9px;font-style:italic;
+  }
+  .chat-source .cs-loc{font-family:var(--mono);font-style:normal;color:var(--muted-dim);margin-right:6px;}
+  .chat-input-row{display:flex;gap:8px;}
+  .chat-input-row input{
+    flex:1;padding:10px 12px;border-radius:8px;border:1px solid var(--panel-border-soft);
+    background:var(--bg, transparent);color:var(--ink);font-family:var(--sans);font-size:12.5px;
+  }
+  .chat-input-row input:focus{outline:none;border-color:var(--accent, #8b93a8);}
+  .chat-input-row button{white-space:nowrap;}
+  .chat-typing{font-size:12px;color:var(--muted);font-style:italic;padding:2px 0;}
+
+  /* Per-item confidence badge, shown alongside citation badges */
+  .cite-badge.cite-confidence{background:rgba(139,146,166,0.15);color:var(--muted);}
+  .cite-badge.cite-confidence.low{background:var(--caution-soft);color:var(--caution);font-weight:800;}
+
+  .verdict-card{
+    border-radius:14px;padding:22px 24px;margin-bottom:28px;
+    border:1px solid var(--panel-border);
+    display:flex;align-items:center;gap:20px;
+    box-shadow:var(--shadow-soft);
+    background:var(--panel);
+  }
+  .verdict-card.go{background:linear-gradient(135deg, rgba(46,158,108,0.13), rgba(46,158,108,0.02)), var(--panel);border-color:rgba(46,158,108,0.35);}
+  .verdict-card.caution{background:linear-gradient(135deg, rgba(168,114,10,0.13), rgba(168,114,10,0.02)), var(--panel);border-color:rgba(168,114,10,0.35);}
+  .verdict-card.nogo{background:linear-gradient(135deg, rgba(194,68,68,0.13), rgba(194,68,68,0.02)), var(--panel);border-color:rgba(194,68,68,0.35);}
+
+  .verdict-score{
+    font-family:var(--mono);font-size:34px;font-weight:700;line-height:1;
+    flex-shrink:0;min-width:64px;text-align:center;
+  }
+  .verdict-card.go .verdict-score{color:var(--go);}
+  .verdict-card.caution .verdict-score{color:var(--caution);}
+  .verdict-card.nogo .verdict-score{color:var(--nogo);}
+  .verdict-score .lbl{display:block;font-size:9px;color:var(--muted);letter-spacing:1px;margin-top:2px;font-weight:600;}
+
+  .verdict-body{flex:1;}
+  .verdict-tag{
+    display:inline-block;font-family:var(--mono);font-size:11px;font-weight:700;
+    letter-spacing:1px;padding:3px 10px;border-radius:5px;margin-bottom:8px;
+  }
+  .verdict-card.go .verdict-tag{background:rgba(46,158,108,0.18);color:var(--go);}
+  .verdict-card.caution .verdict-tag{background:rgba(168,114,10,0.18);color:var(--caution);}
+  .verdict-card.nogo .verdict-tag{background:rgba(194,68,68,0.18);color:var(--nogo);}
+  .verdict-body p{font-size:13px;color:var(--ink);opacity:0.9;}
+
+  .results-grid{display:flex;flex-direction:column;gap:30px;}
+
+  h3.block-title{
+    font-family:var(--display);
+    font-size:13.5px;font-weight:700;letter-spacing:0.2px;margin-bottom:14px;
+    display:flex;align-items:center;gap:8px;color:var(--ink);
+  }
+  h3.block-title .count{
+    font-family:var(--mono);font-size:11px;color:var(--muted);
+    background:var(--panel);border:1px solid var(--panel-border);
+    padding:1px 8px;border-radius:10px;font-weight:500;
+  }
+
+  .disq-box{
+    background:var(--nogo-soft);border:1px solid rgba(194,68,68,0.3);
+    border-radius:9px;padding:14px 16px;margin-top:6px;
+  }
+  .disq-box li{font-size:12.5px;color:#8a2f2f;padding-left:16px;position:relative;margin-bottom:6px;}
+  .disq-box li::before{content:'⚠';position:absolute;left:0;font-size:11px;}
+  .disq-box li:last-child{margin-bottom:0;}
+
+.risk-card{
+    border:1px solid var(--panel-border);border-radius:9px;
+    padding:12px 14px;margin-bottom:10px;background:var(--panel);
+  }
+  .risk-card:last-child{margin-bottom:0;}
+  .risk-top{display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap;}
+  .risk-type{font-size:12.5px;font-weight:700;color:var(--ink);}
+  .risk-sev{
+    font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:0.4px;
+    padding:2px 8px;border-radius:5px;
+  }
+  .risk-sev.HIGH{background:var(--nogo-soft);color:var(--nogo);}
+  .risk-sev.MEDIUM{background:var(--caution-sofst);color:var(--caution);}
+  .risk-sev.LOW{background:rgba(139,146,166,0.15);color:var(--muted);}
+  .risk-desc{font-size:12.5px;color:var(--ink);opacity:0.9;margin-bottom:6px;}
+  .risk-reason{font-size:11.5px;color:var(--muted);line-height:1.5;}
+  
+  /* Phase 5, item #17 — team notes/comments */
+  .note-btn{
+    display:inline-flex;align-items:center;gap:4px;
+    font-family:var(--mono);font-size:10px;font-weight:700;color:var(--muted);
+    background:rgba(139,146,166,0.12);border:1px solid var(--panel-border-soft);
+    border-radius:5px;padding:2px 8px;cursor:pointer;white-space:nowrap;
+  }
+  .note-btn:hover{border-color:var(--accent);color:var(--accent);}
+  .note-btn.has-notes{background:var(--accent-soft);color:var(--accent);border-color:rgba(47,125,140,0.35);}
+  .notes-box{
+    margin-top:8px;padding:10px 12px;border:1px solid var(--panel-border-soft);
+    border-radius:8px;background:var(--bg, transparent);
+  }
+  .note-entry{font-size:12px;line-height:1.5;padding:6px 0;border-bottom:1px solid var(--panel-border-soft);}
+  .note-entry:last-of-type{border-bottom:none;}
+  .note-entry .ne-meta{font-family:var(--mono);font-size:10px;color:var(--muted-dim);margin-bottom:2px;}
+  .note-entry .ne-text{color:var(--ink);}
+  .note-empty{font-size:11.5px;color:var(--muted-dim);font-style:italic;padding:4px 0;}
+  .note-form{display:flex;flex-direction:column;gap:6px;margin-top:8px;}
+  .note-form input, .note-form textarea{
+    background:var(--panel);border:1px solid var(--panel-border);border-radius:6px;
+    color:var(--ink);font-family:var(--sans);font-size:12px;padding:7px 10px;
+  }
+  .note-form textarea{resize:vertical;min-height:48px;}
+  .note-form button{align-self:flex-end;}
+
+  .reset-link{
+    display:inline-block;margin-top:24px;font-size:12px;color:var(--muted);
+    cursor:pointer;text-decoration:underline;text-decoration-color:var(--panel-border);
+  }
+  .reset-link:hover{color:var(--accent);}
+
+  .actions-row{display:flex;align-items:center;gap:18px;margin-top:24px;}
+  button.save-btn{
+    background:var(--panel);color:var(--ink);border:1px solid var(--panel-border);
+    border-radius:7px;padding:9px 16px;font-size:12.5px;font-weight:700;
+    cursor:pointer;font-family:var(--sans);display:inline-flex;align-items:center;gap:7px;
+    transition:border-color .15s, background .15s;
+  }
+  button.save-btn:hover{border-color:var(--accent);background:var(--accent-soft);}
+  button.save-btn:active{transform:scale(0.98);}
+  button.save-btn.saved{border-color:var(--go);color:var(--go);}
+
+  /* ---- Checklist Table (Financial / Legal / Ops / Technical) ---- */
+  .cl-table-wrap{overflow-x:auto;margin-bottom:10px;border:1px solid var(--panel-border-soft);border-radius:10px;}
+  .cl-table{width:100%;border-collapse:collapse;font-size:12.5px;}
+  .cl-table thead tr{background:var(--panel);border-bottom:2px solid var(--panel-border);}
+  .cl-table th{padding:9px 12px;text-align:left;font-size:10.5px;font-weight:700;letter-spacing:0.5px;color:var(--muted);text-transform:uppercase;font-family:var(--mono);}
+  .cl-table td{padding:10px 12px;border-bottom:1px solid var(--panel-border-soft);vertical-align:top;}
+  .cl-table tr:last-child td{border-bottom:none;}
+  .cl-table tr:hover td{background:rgba(47,125,140,0.03);}
+  .cl-item-name{font-weight:700;font-size:12.5px;color:var(--ink);margin-bottom:2px;}
+  .cl-item-q{font-size:11px;color:var(--muted);}
+  .cl-reason{font-size:12px;color:var(--muted);line-height:1.5;}
+  .cl-ans{
+    display:inline-block;font-family:var(--mono);font-size:11px;font-weight:700;
+    padding:3px 9px;border-radius:5px;letter-spacing:0.5px;
+  }
+  .ans-yes{background:var(--go-soft);color:var(--go);}
+  .ans-no{background:var(--nogo-soft);color:var(--nogo);}
+  .ans-na{background:rgba(139,146,166,0.15);color:var(--muted);}
+  .cl-dec{
+    display:inline-block;font-family:var(--mono);font-size:10px;font-weight:700;
+    padding:3px 7px;border-radius:5px;letter-spacing:0.3px;white-space:nowrap;
+  }
+  .dec-go{background:var(--go-soft);color:var(--go);}
+  .dec-nogo{background:var(--nogo-soft);color:var(--nogo);}
+  .dec-caution{background:var(--caution-soft);color:var(--caution);}
+  .dec-review{background:rgba(139,146,166,0.15);color:var(--muted);}
+
+  /* ---- Insurance figures table ---- */
+  .insurance-note{font-size:12.5px;margin-bottom:10px;}
+  .insurance-note.over{color:var(--nogo);}
+  .insurance-note.under{color:var(--go);}
+  .insurance-table td.over{color:var(--nogo);font-weight:700;}
+  .insurance-table td.under{color:var(--go);font-weight:700;}
+
+  /* ---- Deliverables: Parent (category) / Child (item) sections ---- */
+  .deliv-category{
+    border:1px solid var(--panel-border-soft);border-radius:10px;
+    margin-bottom:14px;overflow:hidden;background:var(--panel);
+  }
+  .deliv-cat-header{
+    display:flex;align-items:center;gap:10px;
+    padding:13px 16px;cursor:pointer;user-select:none;
+    background:linear-gradient(180deg, rgba(47,125,140,0.07), transparent);
+    list-style:none;
+  }
+  .deliv-cat-header::-webkit-details-marker{display:none;}
+  .deliv-cat-header .chev{
+    font-size:11px;color:var(--muted);transition:transform .15s;flex-shrink:0;
+  }
+  details[open] > .deliv-cat-header .chev{transform:rotate(90deg);}
+  .deliv-cat-name{font-weight:700;font-size:13.5px;color:var(--ink);}
+  .deliv-cat-count{
+    font-family:var(--mono);font-size:10.5px;color:var(--accent);
+    background:var(--accent-soft);padding:1px 8px;border-radius:9px;
+  }
+  .deliv-due{font-size:11px;color:var(--muted);margin-left:auto;font-family:var(--mono);white-space:nowrap;}
+
+  .deliv-children{padding:4px 16px 14px;}
+  .deliv-child{
+    display:flex;flex-direction:column;gap:5px;
+    padding:11px 12px;margin-top:8px;
+    background:var(--bg);border:1px solid var(--panel-border-soft);border-radius:8px;
+  }
+  .deliv-child-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;}
+  .deliv-child-title{font-size:12.5px;font-weight:600;color:var(--ink);}
+  .deliv-child-tags{display:flex;gap:6px;flex-shrink:0;}
+  .deliv-child-badges{display:flex;gap:6px;flex-wrap:wrap;}
+  .cite-badge{
+    display:inline-flex;align-items:center;gap:3px;
+    font-family:var(--mono);font-size:10px;font-weight:700;
+    padding:2px 8px;border-radius:5px;white-space:nowrap;letter-spacing:0.2px;
+  }
+  .cite-badge.cite-page{background:var(--caution-soft);color:var(--caution);}
+  .cite-badge.cite-section{background:var(--accent-soft);color:var(--accent);}
+  .cite-badge.cite-doc{background:rgba(178,140,255,0.14);color:#b28cff;}
+  .deliv-child-ref{
+    font-size:11.5px;color:var(--muted);line-height:1.5;
+  }
+
+  ::-webkit-scrollbar{width:8px;height:8px;}
+  ::-webkit-scrollbar-track{background:transparent;}
+  ::-webkit-scrollbar-thumb{background:var(--panel-border);border-radius:4px;}
+
+  /* ---------- Phase 4, #13: proposal library modal ---------- */
+  .library-toggle{
+    font-family:var(--mono);font-size:11px;color:var(--ink);
+    border:1px solid var(--panel-border);background:var(--panel);border-radius:20px;
+    padding:6px 14px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;
+  }
+  .library-toggle:hover{border-color:var(--accent);color:var(--accent);}
+  .library-backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:45;}
+  .library-backdrop.open{display:block;}
+  .library-modal{
+    display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
+    width:min(640px, 92vw);max-height:84vh;overflow-y:auto;
+    background:var(--panel-2);border:1px solid var(--panel-border);border-radius:var(--radius);
+    box-shadow:var(--shadow-soft);padding:22px 22px 26px;z-index:50;
+  }
+  .library-modal.open{display:block;}
+  .library-modal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;}
+  .library-modal-head h2{font-family:var(--display);font-size:14px;font-weight:700;color:var(--ink);}
+  .library-close{background:none;border:none;color:var(--muted);font-size:16px;cursor:pointer;line-height:1;padding:4px;}
+  .library-close:hover{color:var(--ink);}
+  .library-sub{font-size:11.5px;color:var(--muted-dim);line-height:1.5;margin-bottom:16px;}
+  .library-dropzone{
+    border:1.5px dashed var(--panel-border);border-radius:8px;padding:16px;text-align:center;
+    cursor:pointer;transition:border-color .15s ease;margin-bottom:16px;
+  }
+  .library-dropzone:hover{border-color:var(--accent);}
+  .library-dropzone .icon{font-size:20px;margin-bottom:4px;}
+  .library-dropzone .main-txt{font-size:12.5px;color:var(--ink);font-weight:500;}
+  .library-dropzone .sub-txt{font-size:10.5px;color:var(--muted-dim);margin-top:2px;}
+  .library-section-label{
+    font-family:var(--mono);font-size:10.5px;letter-spacing:0.5px;color:var(--muted-dim);
+    text-transform:uppercase;margin:18px 0 8px;
+  }
+  .library-list{list-style:none;display:flex;flex-direction:column;gap:8px;}
+  .library-empty{font-size:11.5px;color:var(--muted-dim);padding:10px 2px;}
+  .library-item{
+    background:var(--bg);border:1px solid var(--panel-border-soft);border-radius:8px;
+    padding:10px 12px;display:flex;align-items:center;justify-content:space-between;gap:10px;
+  }
+  .library-item .li-name{font-size:12px;color:var(--ink);font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:280px;}
+  .library-item .li-meta{font-family:var(--mono);font-size:10px;color:var(--muted-dim);margin-top:3px;}
+  .library-status{
+    font-family:var(--mono);font-size:9.5px;font-weight:700;letter-spacing:0.3px;
+    padding:2px 8px;border-radius:5px;white-space:nowrap;
+  }
+  .library-status.ready,.library-status.completed{background:var(--go-soft);color:var(--go);}
+  .library-status.queued,.library-status.active{background:var(--accent-soft);color:var(--accent);}
+  .library-status.failed{background:var(--nogo-soft);color:var(--nogo);}
+  .library-item-right{display:flex;align-items:center;gap:8px;flex-shrink:0;}
+  .library-remove{background:none;border:none;color:var(--muted-dim);cursor:pointer;font-size:13px;padding:2px 4px;}
+  .library-remove:hover{color:var(--nogo);}
+  .library-search-row{display:flex;gap:8px;}
+  .library-search-row input{
+    flex:1;background:var(--bg);border:1px solid var(--panel-border);border-radius:8px;
+    color:var(--ink);font-size:12px;padding:9px 12px;font-family:var(--sans);
+  }
+  .library-search-row input:focus{outline:none;border-color:var(--accent);}
+  .library-search-row button{
+    font-family:var(--mono);font-size:11px;font-weight:600;color:var(--bg);
+    background:var(--accent);border:none;border-radius:8px;padding:9px 16px;cursor:pointer;white-space:nowrap;
+  }
+  .library-search-row button:hover{opacity:0.9;}
+  .library-search-row button:disabled{opacity:0.5;cursor:not-allowed;}
+  .library-result{
+    background:var(--bg);border:1px solid var(--panel-border-soft);border-left:3px solid var(--accent);
+    border-radius:8px;padding:10px 12px;margin-top:8px;
+  }
+  .library-result-top{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-bottom:5px;}
+  .library-result-top .lr-file{font-size:11.5px;font-weight:600;color:var(--ink);}
+  .library-result-top .lr-score{font-family:var(--mono);font-size:10px;color:var(--accent);}
+  .library-result-text{font-size:11.5px;color:var(--muted);line-height:1.55;}
+
+  /* ---------- Phase 5, item #22: per-analysis headline metrics strip ---------- */
+  .headline-metrics{
+    display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap;
+  }
+  .hl-metric{
+    flex:1;min-width:110px;background:var(--panel);border:1px solid var(--panel-border);
+    border-radius:9px;padding:10px 14px;
+  }
+  .hl-metric .hl-value{font-family:var(--display);font-size:22px;font-weight:700;color:var(--ink);line-height:1;}
+  .hl-metric .hl-label{font-family:var(--mono);font-size:9.5px;letter-spacing:0.6px;text-transform:uppercase;color:var(--muted-dim);margin-top:5px;}
+  .hl-metric.hl-score .hl-value{color:var(--accent);}
+  .hl-metric.hl-risks .hl-value.has-risks{color:var(--caution);}
+  .hl-metric.hl-risks .hl-value.has-high-risk{color:var(--nogo);}
+
+  /* ---------- Phase 5, item #21: outcome control + dashboard modal ---------- */
+  .outcome-row{
+    display:flex;align-items:center;gap:8px;margin-top:12px;padding-top:12px;
+    border-top:1px solid var(--panel-border-soft);flex-wrap:wrap;
+  }
+  .outcome-row .oc-label{font-family:var(--mono);font-size:10.5px;color:var(--muted-dim);text-transform:uppercase;letter-spacing:0.4px;}
+  .outcome-btn{
+    font-family:var(--mono);font-size:11px;color:var(--muted);
+    border:1px solid var(--panel-border);background:var(--panel);border-radius:20px;
+    padding:5px 12px;cursor:pointer;transition:border-color .12s,color .12s,background .12s;
+  }
+  .outcome-btn:hover{border-color:var(--accent);color:var(--accent);}
+  .outcome-btn.active[data-outcome="won"]{background:var(--go-soft);border-color:rgba(46,158,108,0.4);color:var(--go);}
+  .outcome-btn.active[data-outcome="lost"]{background:var(--nogo-soft);border-color:rgba(194,68,68,0.4);color:var(--nogo);}
+  .outcome-btn.active[data-outcome="no_bid"]{background:rgba(139,147,168,0.15);border-color:var(--panel-border);color:var(--muted);}
+  .outcome-btn.active[data-outcome="pending"]{background:var(--accent-soft);border-color:rgba(47,125,140,0.35);color:var(--accent);}
+
+  .dashboard-toggle{
+    font-family:var(--mono);font-size:11px;color:var(--ink);
+    border:1px solid var(--panel-border);background:var(--panel);border-radius:20px;
+    padding:6px 14px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;
+  }
+  .dashboard-toggle:hover{border-color:var(--accent);color:var(--accent);}
+  .dashboard-modal .library-modal-head h2{font-size:14px;}
+  .dash-sub{font-size:11.5px;color:var(--muted-dim);line-height:1.5;margin-bottom:18px;}
+  .dash-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px;}
+  .dash-tile{
+    background:var(--bg);border:1px solid var(--panel-border-soft);border-radius:9px;padding:14px 16px;
+  }
+  .dash-tile .dt-value{font-family:var(--display);font-size:26px;font-weight:700;color:var(--ink);line-height:1;}
+  .dash-tile .dt-label{font-family:var(--mono);font-size:9.5px;letter-spacing:0.6px;text-transform:uppercase;color:var(--muted-dim);margin-top:6px;}
+  .dash-tile.dt-winrate .dt-value{color:var(--go);}
+  .dash-tile.dt-score .dt-value{color:var(--accent);}
+  .dash-section-label{
+    font-family:var(--mono);font-size:10.5px;letter-spacing:0.5px;color:var(--muted-dim);
+    text-transform:uppercase;margin:18px 0 8px;
+  }
+  .dash-bar-row{display:flex;align-items:center;gap:10px;margin-bottom:8px;}
+  .dash-bar-row .db-label{font-size:11.5px;color:var(--muted);width:90px;flex-shrink:0;}
+  .dash-bar-track{flex:1;height:7px;background:var(--bg);border-radius:5px;overflow:hidden;border:1px solid var(--panel-border-soft);}
+  .dash-bar-fill{height:100%;border-radius:5px;}
+  .dash-bar-fill.go{background:var(--go);}
+  .dash-bar-fill.caution{background:var(--caution);}
+  .dash-bar-fill.nogo{background:var(--nogo);}
+  .dash-bar-fill.won{background:var(--go);}
+  .dash-bar-fill.lost{background:var(--nogo);}
+  .dash-bar-fill.no_bid{background:var(--muted-dim);}
+  .dash-bar-fill.pending{background:var(--accent);}
+  .dash-bar-row .db-count{font-family:var(--mono);font-size:10.5px;color:var(--muted-dim);width:34px;text-align:right;flex-shrink:0;}
+  .dash-empty{font-size:11.5px;color:var(--muted-dim);padding:10px 2px;}
+</style>
+</head>
+<body>
+
+<div class="app">
+  <header>
+    <div class="brand">
+      <div class="brand-mark">📋</div>
+      <div class="brand-text">
+        <h1>RFP Intelligence Portal</h1>
+        <p>extract · evaluate · decide</p>
+      </div>
+    </div>
+    <div class="header-right">
+      <button class="dashboard-toggle" id="dashboardToggle">📊 Dashboard</button>
+      <button class="library-toggle" id="libraryToggle">📚 Library</button>
+      <button class="history-toggle" id="historyToggle">🕘 History</button>
+      <div class="engine-badge" title="Powered by Gemini 3.5 Flash"><span class="dot"></span> AI-Powered</div>
+    </div>
+  </header>
+
+  <div class="history-backdrop" id="historyBackdrop"></div>
+
+  <div class="library-backdrop" id="libraryBackdrop"></div>
+  <div class="library-modal" id="libraryModal">
+    <div class="library-modal-head">
+      <h2>📚 Past Proposal Library</h2>
+      <button class="library-close" id="libraryCloseBtn">✕</button>
+    </div>
+    <div class="library-sub">Upload past WON proposals to build a searchable library. Future proposal drafts can pull matching past answers from here instead of starting from scratch.</div>
+
+    <div id="libraryDropzone" class="library-dropzone">
+      <div class="icon">📤</div>
+      <div class="main-txt">Click to upload past proposals, or drag files here</div>
+      <div class="sub-txt">PDF, DOCX, or TXT — multiple files supported</div>
+    </div>
+    <input type="file" id="libraryFileInput" accept=".pdf,.docx,.doc,.txt" multiple style="display:none" />
+
+    <div class="library-section-label">Library (<span id="libraryCount">0</span>)</div>
+    <ul class="library-list" id="libraryListHolder">
+      <li class="library-empty">No past proposals uploaded yet.</li>
+    </ul>
+
+    <div class="library-section-label">Test search</div>
+    <div class="library-search-row">
+      <input type="text" id="librarySearchInput" placeholder="e.g. data retention policy for municipal clients" />
+      <button id="librarySearchBtn">Search</button>
+    </div>
+    <div id="libraryResultsHolder"></div>
+  </div>
+
+  <div class="library-backdrop" id="dashboardBackdrop"></div>
+  <div class="library-modal dashboard-modal" id="dashboardModal">
+    <div class="library-modal-head">
+      <h2>📊 Aggregate Dashboard</h2>
+      <button class="library-close" id="dashboardCloseBtn">✕</button>
+    </div>
+    <div class="dash-sub">Win rate, average fit score, and totals rolled up across every RFP you've analysed. Mark each analysis Won / Lost / No-bid from its result view to feed the win rate below.</div>
+    <div id="dashboardBody">
+      <div class="dash-empty">Loading…</div>
+    </div>
+  </div>
+
+  <main>
+    <aside class="history-sidebar" id="historySidebar">
+      <div class="history-head">
+        <h2>Case History</h2>
+        <span class="history-count" id="historyCount">0</span>
+      </div>
+      <div class="history-sub">Previously analysed RFPs</div>
+      <div id="historyListHolder" style="flex:1;display:flex;flex-direction:column;min-height:0;">
+        <div class="history-empty">
+          <div class="g">🗂️</div>
+          <p>Nothing analysed yet.<br>Completed analyses will be indexed here.</p>
+        </div>
+      </div>
+    </aside>
+
+    <div class="panel-left">
+
+      <div class="section-label"><span class="num">01</span> Upload RFP Document(s)</div>
+      <div id="dropzone" class="dropzone">
+        <div class="icon">📄</div>
+        <div class="main-txt">Click to upload, or drag files here</div>
+        <div class="sub-txt">PDF, DOCX, or TXT — up to 15MB each · multiple files supported</div>
+      </div>
+      <input type="file" id="fileInput" accept=".pdf,.docx,.doc,.txt" multiple style="display:none" />
+      <input type="file" id="folderInput" webkitdirectory directory multiple style="display:none" />
+      <button type="button" id="folderUploadBtn" class="save-btn" style="width:100%;margin-bottom:14px;">📁 Or upload a whole folder of RFPs</button>
+      <input type="file" id="addendumFileInput" accept=".pdf,.docx,.doc,.txt" style="display:none" />
+      <div id="fileChipHolder"></div>
+
+      <div class="section-label" style="margin-top:24px;"><span class="num">02</span> Company Context <span style="color:var(--muted);text-transform:none;font-weight:400;">(optional)</span></div>
+      <label class="field-label">Our relevant strengths</label>
+      <textarea id="strengths" class="context" placeholder="e.g. 8 years building municipal portals, SOC 2 certified, existing Esri ArcGIS integration experience..."></textarea>
+      <label class="field-label">Known gaps or limitations</label>
+      <textarea id="gaps" class="context" placeholder="e.g. no in-house mobile dev team, would need to subcontract native iOS/Android..."></textarea>
+
+      <div class="section-label" style="margin-top:24px;"><span class="num">03</span> Run Analysis</div>
+      <button id="analyzeBtn" class="primary" disabled>✨ Analyse RFP</button>
+      <div id="batchProgress" class="batch-progress"></div>
+
+      <div id="errorHolder"></div>
+    </div>
+
+    <div class="panel-right" id="resultsPanel">
+      <div class="home-dashboard">
+        <div class="home-hero">
+          <div>
+            <div class="hh-eyebrow">Welcome</div>
+            <h1>Everything you need to review an RFP, in one place</h1>
+            <p>Upload a document on the left and this screen turns into a full compliance breakdown — checklists, risks, deliverables, and a clear Go / No-Go call. Everything this tool can do is laid out below.</p>
+          </div>
+          <div class="home-hero-actions">
+            <button class="home-hero-btn" data-home-action="focus-upload">📤 Upload your first RFP</button>
+            <button class="home-hero-btn secondary" data-home-action="open-dashboard">📊 View insights dashboard</button>
+          </div>
+        </div>
+
+        <div class="home-steps">
+          <div class="home-step"><div class="hs-num">1</div><div><h4>Upload</h4><p>Drop in one RFP, several at once, or a whole folder.</p></div></div>
+          <div class="home-step"><div class="hs-num">2</div><div><h4>AI reads it for you</h4><p>Every requirement, deadline, and risk gets pulled out and checked.</p></div></div>
+          <div class="home-step"><div class="hs-num">3</div><div><h4>You decide</h4><p>Get a plain Go / Caution / No-Go call with the reasoning behind it.</p></div></div>
+        </div>
+
+        <div class="home-section-label">What this tool can do</div>
+        <div class="capability-grid">
+          <div class="cap-card">
+            <div class="cap-top"><div class="cap-icon">📤</div><h3>Upload &amp; analyse</h3></div>
+            <p>Add one RFP or several, and get a full compliance breakdown — financial, legal, operations, and technical — in minutes.</p>
+            <button class="cap-cta" data-home-action="focus-upload">Go to upload ↑</button>
+          </div>
+          <div class="cap-card">
+            <div class="cap-top"><div class="cap-icon">📁</div><h3>Whole-folder batch</h3></div>
+            <p>Point it at a folder of RFPs and every document inside gets analysed in one run, no need to add them one by one.</p>
+            <button class="cap-cta" data-home-action="folder-upload">Choose a folder</button>
+          </div>
+          <div class="cap-card">
+            <div class="cap-top"><div class="cap-icon">🗂️</div><h3>Case history</h3></div>
+            <p>Every completed analysis is saved automatically and stays searchable across browsers and devices.</p>
+            <button class="cap-cta" data-home-action="focus-history">View case history</button>
+          </div>
+          <div class="cap-card">
+            <div class="cap-top"><div class="cap-icon">📊</div><h3>Insights dashboard</h3></div>
+            <p>Track your win rate, average fit score, and totals rolled up across every RFP you've ever reviewed.</p>
+            <button class="cap-cta" data-home-action="open-dashboard">Open dashboard</button>
+          </div>
+          <div class="cap-card">
+            <div class="cap-top"><div class="cap-icon">📚</div><h3>Past-proposal library</h3></div>
+            <p>Upload proposals you've already won so future drafts can reuse the language that worked before.</p>
+            <button class="cap-cta" data-home-action="open-library">Open library</button>
+          </div>
+          <div class="cap-card">
+            <div class="cap-top"><div class="cap-icon">💬</div><h3>Chat with your RFP</h3></div>
+            <p>Ask plain questions about a document — "what's the insurance minimum?" — and get answers sourced straight from the text.</p>
+            <span class="cap-tag">On a completed analysis</span>
+            <button class="cap-cta" data-home-action="focus-upload">Start by uploading →</button>
+          </div>
+          <div class="cap-card">
+            <div class="cap-top"><div class="cap-icon">✍️</div><h3>Proposal writer</h3></div>
+            <p>Three AI reviewers — compliance, drafting, and editing — turn a "Go" decision into a real first draft.</p>
+            <span class="cap-tag">On a completed analysis</span>
+            <button class="cap-cta" data-home-action="focus-upload">Start by uploading →</button>
+          </div>
+          <div class="cap-card">
+            <div class="cap-top"><div class="cap-icon">⚠️</div><h3>Risk radar</h3></div>
+            <p>Unfair payment terms, liability gaps, IP issues, and termination clauses get flagged automatically, with severity.</p>
+            <span class="cap-tag">On a completed analysis</span>
+            <button class="cap-cta" data-home-action="focus-upload">Start by uploading →</button>
+          </div>
+          <div class="cap-card">
+            <div class="cap-top"><div class="cap-icon">📄</div><h3>Export center</h3></div>
+            <p>Download a formatted PDF report or a structured JSON file for any completed analysis, ready to share.</p>
+            <span class="cap-tag">On a completed analysis</span>
+            <button class="cap-cta" data-home-action="focus-upload">Start by uploading →</button>
+          </div>
+          <div class="cap-card">
+            <div class="cap-top"><div class="cap-icon">🔀</div><h3>Addendum checker</h3></div>
+            <p>Upload a revised RFP and see exactly what changed since the version you already reviewed.</p>
+            <span class="cap-tag">On a completed analysis</span>
+            <button class="cap-cta" data-home-action="focus-upload">Start by uploading →</button>
+          </div>
+          <div class="cap-card">
+            <div class="cap-top"><div class="cap-icon">📝</div><h3>Team notes</h3></div>
+            <p>Colleagues can leave notes on any checklist item, right where the item lives, without a separate tool.</p>
+            <span class="cap-tag">On a completed analysis</span>
+            <button class="cap-cta" data-home-action="focus-upload">Start by uploading →</button>
+          </div>
+          <div class="cap-card">
+            <div class="cap-top"><div class="cap-icon">🔔</div><h3>Automated alerts</h3></div>
+            <p>Get a Slack or email ping the moment an analysis finishes, or when a submission deadline is closing in.</p>
+            <span class="cap-tag">Set up by your admin</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+const BACKEND_URL = 'http://localhost:3001';
+
+const dropzone = document.getElementById('dropzone');
+const fileInput = document.getElementById('fileInput');
+const fileChipHolder = document.getElementById('fileChipHolder');
+const analyzeBtn = document.getElementById('analyzeBtn');
+const errorHolder = document.getElementById('errorHolder');
+const resultsPanel = document.getElementById('resultsPanel');
+const strengthsEl = document.getElementById('strengths');
+const gapsEl = document.getElementById('gaps');
+
+// ---------------------------------------------------------------------
+// MULTI-FILE UPLOAD QUEUE
+// Each entry: { id, file, status: 'extracting'|'ready'|'error'|'analysing'|'done',
+//               text, error, statusText }
+// The extract/analyze calls themselves are untouched — one /api/extract
+// call and one /api/analyze call per file, exactly as before. We just
+// loop over the queue instead of assuming a single file.
+// ---------------------------------------------------------------------
+let pendingFiles = [];
+let lastResult = null;
+
+dropzone.addEventListener('click', () => fileInput.click());
+['dragover','dragenter'].forEach(evt => dropzone.addEventListener(evt, e => {
+  e.preventDefault(); dropzone.classList.add('drag');
+}));
+['dragleave','drop'].forEach(evt => dropzone.addEventListener(evt, e => {
+  e.preventDefault(); dropzone.classList.remove('drag');
+}));
+dropzone.addEventListener('drop', e => {
+  if (e.dataTransfer.files.length) handleFiles(Array.from(e.dataTransfer.files));
+});
+fileInput.addEventListener('change', e => {
+  if (e.target.files.length) handleFiles(Array.from(e.target.files));
+  fileInput.value = '';
+});
+
+// Phase 5, item #20: batch folder upload — reuses the EXACT SAME
+// handleFiles() pipeline as normal multi-file upload (extract, then
+// analyze). Browsers report every file inside the selected folder as a
+// flat FileList, so this needs zero new extract/analyze code.
+const folderInputEl = document.getElementById('folderInput');
+const folderUploadBtnEl = document.getElementById('folderUploadBtn');
+folderUploadBtnEl.addEventListener('click', () => folderInputEl.click());
+folderInputEl.addEventListener('change', e => {
+  const files = Array.from(e.target.files).filter(f => /\.(pdf|docx|doc|txt)$/i.test(f.name));
+  if (files.length) handleFiles(files);
+  folderInputEl.value = '';
+});
+
+// Phase 3, item #12: separate, single-file input just for re-uploading an
+// amended RFP against whichever analysis is currently on screen. Kept
+// entirely separate from the main multi-file upload queue above — this
+// never touches pendingFiles or the "Analyse RFP" flow.
+const addendumFileInputEl = document.getElementById('addendumFileInput');
+addendumFileInputEl.addEventListener('change', e => {
+  if (e.target.files.length) handleAddendumFileSelected(e.target.files[0]);
+  addendumFileInputEl.value = '';
+});
+
+function fmtBytes(b){
+  if (b < 1024) return b + ' B';
+  if (b < 1024*1024) return (b/1024).toFixed(1) + ' KB';
+  return (b/(1024*1024)).toFixed(1) + ' MB';
+}
+
+function handleFiles(files){
+  clearError();
+  files.forEach(file => {
+    const pf = { id: 'f_' + Date.now() + '_' + Math.random().toString(36).slice(2,7), file, status: 'extracting', text: null, error: null, ocrUsed: false };
+    pendingFiles.push(pf);
+    extractOneFile(pf);
+  });
+  renderFileChips();
+  updateAnalyzeBtnState();
+}
+
+async function extractOneFile(pf){
+  try {
+    const fd = new FormData();
+    fd.append('file', pf.file);
+    const res = await fetch(`${BACKEND_URL}/api/extract`, { method: 'POST', body: fd });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Could not read this file.');
+    pf.text = data.text;
+    pf.status = 'ready';
+    pf.ocrUsed = !!data.ocrUsed;
+    // Phase 4, item #14: this file had no real text layer (scanned/image
+    // PDF), so the backend routed it through vision OCR instead. Flag that
+    // plainly — an OCR transcription is a lower-confidence read than a
+    // clean text-layer extraction, and the person should know which one
+    // they're about to analyse.
+    pf.statusText = pf.ocrUsed
+      ? `${data.text.length.toLocaleString()} characters extracted · 🔍 via OCR (scanned document)`
+      : `${data.text.length.toLocaleString()} characters extracted`;
+  } catch (err) {
+    pf.status = 'error';
+    pf.error = err.message;
+  }
+  renderFileChips();
+  updateAnalyzeBtnState();
+}
+
+function updateAnalyzeBtnState(){
+  const readyCount = pendingFiles.filter(f => f.status === 'ready').length;
+  const busy = pendingFiles.some(f => f.status === 'extracting' || f.status === 'analysing');
+  analyzeBtn.disabled = readyCount === 0 || busy;
+  if (!busy) {
+    analyzeBtn.textContent = readyCount > 1 ? `✨ Analyse ${readyCount} RFPs` : '✨ Analyse RFP';
+  }
+}
+
+function removeFile(id){
+  pendingFiles = pendingFiles.filter(f => f.id !== id);
+  renderFileChips();
+  updateAnalyzeBtnState();
+}
+
+function statusIcon(status){
+  if (status === 'extracting' || status === 'analysing') return '⏳';
+  if (status === 'ready') return '📎';
+  if (status === 'done') return '✅';
+  if (status === 'error') return '⚠️';
+  return '📎';
+}
+
+function renderFileChips(){
+  if (!pendingFiles.length){ fileChipHolder.innerHTML = ''; return; }
+  fileChipHolder.innerHTML = pendingFiles.map(pf => {
+    const sub = pf.status === 'error'
+      ? `<span style="color:var(--nogo);">${escapeHtml(pf.error || 'Failed')}</span>`
+      : `${fmtBytes(pf.file.size)}${pf.statusText ? ' · ' + escapeHtml(pf.statusText) : (pf.status === 'extracting' ? ' · extracting…' : (pf.status === 'analysing' ? ' · analysing…' : ''))}`;
+    return `
+    <div class="file-chip file-chip-${pf.status}">
+      <div class="ficon">${statusIcon(pf.status)}</div>
+      <div class="finfo">
+        <div class="fname">${escapeHtml(pf.file.name)}</div>
+        <div class="fsize">${sub}</div>
+      </div>
+      <button class="fremove" data-remove-file="${pf.id}" title="Remove file">✕</button>
+    </div>`;
+  }).join('');
+  fileChipHolder.querySelectorAll('[data-remove-file]').forEach(btn => {
+    btn.addEventListener('click', () => removeFile(btn.dataset.removeFile));
+  });
+}
+
+function showError(title, msg){
+  errorHolder.innerHTML = `
+    <div class="error-box">
+      <div class="etitle">⚠ ${escapeHtml(title)}</div>
+      ${escapeHtml(msg)}
+    </div>`;
+}
+function clearError(){ errorHolder.innerHTML = ''; }
+
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+// ---------------------------------------------------------------------
+// PHASE 5, item #17 — Team notes/comments on checklist items.
+// itemRef is a deterministic string built from where an item sits in the
+// result JSON (e.g. "financial_checklist:2", "deliverables:0:3") so the
+// backend never needs to understand the analysis shape — it just stores
+// notes keyed by whatever ref the frontend hands it.
+// ---------------------------------------------------------------------
+let notesCache = {}; // itemRef -> array of note objects, for the CURRENTLY shown analysis
+
+function cssEscape(s){ return String(s).replace(/[^a-zA-Z0-9_-]/g, '_'); }
+function cssAttrEscape(s){ return String(s).replace(/"/g, '\\"'); }
+
+function noteButtonHtml(itemRef, itemLabel) {
+  const count = (notesCache[itemRef] || []).length;
+  return `<button class="note-btn ${count ? 'has-notes' : ''}" data-note-ref="${escapeHtml(itemRef)}" data-note-label="${escapeHtml(itemLabel || '')}">💬 ${count ? count + ' note' + (count === 1 ? '' : 's') : 'Add note'}</button>`;
+}
+
+async function loadNotesForCurrentAnalysis(){
+  const id = currentSourceMeta.id;
+  notesCache = {};
+  if (!id) return;
+  try {
+    const res = await fetch(`${BACKEND_URL}/api/analyses/${id}/notes`);
+    const notes = await res.json();
+    if (!res.ok) return;
+    notes.forEach(n => {
+      if (!notesCache[n.itemRef]) notesCache[n.itemRef] = [];
+      notesCache[n.itemRef].push(n);
+    });
+  } catch (e) { /* non-critical, leave notesCache empty */ }
+  resultsPanel.querySelectorAll('[data-note-ref]').forEach(btn => {
+    const ref = btn.dataset.noteRef;
+    const count = (notesCache[ref] || []).length;
+    btn.classList.toggle('has-notes', count > 0);
+    btn.textContent = count ? `💬 ${count} note${count === 1 ? '' : 's'}` : '💬 Add note';
+  });
+}
+
+function toggleNotesBox(itemRef, itemLabel, anchorEl){
+  const existing = document.getElementById('notesBox-' + cssEscape(itemRef));
+  if (existing) { existing.remove(); return; }
+  document.querySelectorAll('.notes-box').forEach(el => el.remove());
+
+  const notes = notesCache[itemRef] || [];
+  const box = document.createElement('div');
+  box.className = 'notes-box';
+  box.id = 'notesBox-' + cssEscape(itemRef);
+  box.innerHTML = `
+    ${notes.length
+      ? notes.map(n => `
+        <div class="note-entry" data-note-id="${n.id}">
+          <div class="ne-meta">${escapeHtml(n.author)} · ${fmtHistoryDate(n.createdAt)} <span data-delete-note="${n.id}" style="cursor:pointer;color:var(--nogo);margin-left:6px;">✕</span></div>
+          <div class="ne-text">${escapeHtml(n.text)}</div>
+        </div>`).join('')
+      : `<div class="note-empty">No notes yet on this item.</div>`}
+    <div class="note-form">
+      <input type="text" placeholder="Your name (optional)" class="note-author-input" />
+      <textarea placeholder="Add a note…" class="note-text-input"></textarea>
+      <button class="save-btn note-submit-btn">Add note</button>
+    </div>`;
+  const container = anchorEl.closest('.deliv-child, td, .risk-card') || anchorEl.parentElement;
+  container.appendChild(box);
+
+  box.querySelector('.note-submit-btn').addEventListener('click', async () => {
+    const authorInput = box.querySelector('.note-author-input');
+    const textInput = box.querySelector('.note-text-input');
+    const text = textInput.value.trim();
+    const id = currentSourceMeta.id;
+    if (!text || !id) return;
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/analyses/${id}/notes`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ itemRef, itemLabel, author: authorInput.value.trim(), text })
+      });
+      const note = await res.json();
+      if (!res.ok) throw new Error(note.error || 'Could not save note.');
+      if (!notesCache[itemRef]) notesCache[itemRef] = [];
+      notesCache[itemRef].push(note);
+      box.remove();
+      const btn = resultsPanel.querySelector(`[data-note-ref="${cssAttrEscape(itemRef)}"]`);
+      if (btn) {
+        const count = notesCache[itemRef].length;
+        btn.classList.add('has-notes');
+        btn.textContent = `💬 ${count} note${count === 1 ? '' : 's'}`;
+        toggleNotesBox(itemRef, itemLabel, btn);
+      }
+    } catch (err) {
+      alert(err.message || 'Could not save note.');
+    }
+  });
+
+  box.querySelectorAll('[data-delete-note]').forEach(delBtn => {
+    delBtn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const noteId = delBtn.dataset.deleteNote;
+      const id = currentSourceMeta.id;
+      try {
+        await fetch(`${BACKEND_URL}/api/analyses/${id}/notes/${noteId}`, { method: 'DELETE' });
+        notesCache[itemRef] = (notesCache[itemRef] || []).filter(n => n.id !== noteId);
+        const btn = resultsPanel.querySelector(`[data-note-ref="${cssAttrEscape(itemRef)}"]`);
+        const count = notesCache[itemRef].length;
+        if (btn) {
+          btn.classList.toggle('has-notes', count > 0);
+          btn.textContent = count ? `💬 ${count} note${count === 1 ? '' : 's'}` : '💬 Add note';
+        }
+        box.remove();
+        if (count > 0 && btn) toggleNotesBox(itemRef, itemLabel, btn);
+      } catch (err) { /* non-critical */ }
+    });
+  });
+}
+
+resultsPanel.addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-note-ref]');
+  if (!btn) return;
+  toggleNotesBox(btn.dataset.noteRef, btn.dataset.noteLabel, btn);
+});
+
+
+let currentBatchEntries = []; // entries created by the most recent analyse run, for the tab strip
+
+analyzeBtn.addEventListener('click', async () => {
+  const queue = pendingFiles.filter(f => f.status === 'ready');
+  if (!queue.length) return;
+  clearError();
+  analyzeBtn.disabled = true;
+  analyzeBtn.textContent = queue.length > 1 ? `Analysing ${queue.length} RFPs together…` : 'Analysing…';
+  renderLoading();
+  queue.forEach(pf => { pf.status = 'analysing'; });
+  renderFileChips();
+
+  try {
+    // The backend now queues this instead of processing it inline (see
+    // /api/analyze-merged + queue.js in server.js) — a long Gemini call no
+    // longer holds this HTTP request open. We get a job id back right away
+    // and poll /api/jobs/:id until the background worker finishes it.
+    const enqueueRes = await fetch(`${BACKEND_URL}/api/analyze-merged`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        documents: queue.map(pf => ({ filename: pf.file.name, text: pf.text })),
+        strengths: strengthsEl.value.trim(),
+        gaps: gapsEl.value.trim()
+      })
+    });
+    const enqueueData = await enqueueRes.json();
+    if (!enqueueRes.ok) throw new Error(enqueueData.error || 'Analysis failed.');
+
+    const job = await pollJobUntilDone(enqueueData.id, queue.length);
+    if (job.status === 'failed') throw new Error(job.error || 'Analysis failed.');
+
+    const data = job.data;
+    queue.forEach(pf => { pf.status = 'done'; });
+
+    const entry = {
+      id: job.id,
+      batchId: job.batchId || null,
+      fileName: job.fileName,
+      savedAt: job.savedAt,
+      score: job.score,
+      recommendation: job.recommendation,
+      outcome: job.outcome || 'pending',
+      data
+    };
+    currentBatchEntries = [entry];
+    renderResults(data, { id: job.id, fileName: job.fileName, savedAt: job.savedAt, outcome: job.outcome });
+    setActiveHistoryItem(entry.id);
+    // The worker already persisted this result server-side; just refresh
+    // the sidebar from the database so it (and the summary fields derived
+    // from it) reflect the new entry.
+    await refreshHistory();
+    setActiveHistoryItem(entry.id);
+
+  } catch (err) {
+    queue.forEach(pf => { pf.status = 'error'; pf.error = err.message; });
+    renderEmpty();
+    showError('Gemini error', err.message || 'Could not analyse these documents.');
+  }
+
+  renderFileChips();
+  analyzeBtn.disabled = false;
+  updateAnalyzeBtnState();
+});
+
+// Polls GET /api/jobs/:id every 1.5s until status is 'completed' or
+// 'failed'. Updates the loading UI with how long it's been running so a
+// slow multi-exhibit analysis doesn't look stuck.
+//
+// NOTE on the step list below: the backend does the whole extraction in
+// ONE Gemini call (see server.js buildPrompt/buildMergedPrompt), so it has
+// no way to report "deliverables done, now doing insurance" as separate
+// backend events. Splitting that into multiple Gemini calls just to get
+// real sub-step events would mean more API calls, more latency, and risk
+// of the sections losing consistency with each other (fit_score depends on
+// all of them together). Instead, once the job is actually 'active' we
+// walk through the SAME steps the prompt itself performs, in the order the
+// prompt asks the model to do them, timed against how long each step
+// realistically takes. The status itself (queued/active/completed/failed)
+// is always the real backend state — only the sub-step highlighted while
+// 'active' is estimated.
+const ANALYSIS_STEPS = [
+  { label: 'Reading document & exhibits',                  atSeconds: 0  },
+  { label: 'Extracting deliverables checklist',             atSeconds: 7  },
+  { label: 'Checking insurance & financial requirements',   atSeconds: 16 },
+  { label: 'Reviewing legal & operations compliance',       atSeconds: 25 },
+  { label: 'Reviewing technical requirements',               atSeconds: 34 },
+  { label: 'Finalising fit score & recommendation',         atSeconds: 43 }
+];
+
+async function pollJobUntilDone(jobId, fileCount){
+  const POLL_MS = 1500;
+  const startedAt = Date.now();
+  let activeStartedAt = null;
+  while (true) {
+    const res = await fetch(`${BACKEND_URL}/api/jobs/${jobId}`);
+    const job = await res.json();
+    if (!res.ok) throw new Error(job.error || 'Could not check analysis status.');
+
+    if (job.status === 'completed' || job.status === 'failed') return job;
+
+    if (job.status === 'active' && !activeStartedAt) activeStartedAt = Date.now();
+
+    const elapsed = Math.round((Date.now() - startedAt) / 1000);
+    const activeElapsed = activeStartedAt ? Math.round((Date.now() - activeStartedAt) / 1000) : 0;
+    renderLoading(job.status, elapsed, fileCount, activeElapsed);
+    await new Promise(r => setTimeout(r, POLL_MS));
+  }
+}
+
+function renderLoading(status, elapsedSeconds, fileCount, activeElapsedSeconds){
+  const elapsedText = typeof elapsedSeconds === 'number' && elapsedSeconds > 0
+    ? `<p style="font-size:12px;color:#999;">${elapsedSeconds}s elapsed — this runs in the background, feel free to leave this tab</p>`
+    : '';
+
+  if (status === 'queued') {
+    const queuedText = fileCount > 1
+      ? `Queued — waiting for a worker to pick up ${fileCount} documents…`
+      : 'Queued — waiting for a worker to pick this up…';
+    resultsPanel.innerHTML = `
+      <div class="loading-state">
+        <div class="spinner"></div>
+        <p>${queuedText}</p>
+        ${elapsedText}
+      </div>`;
+    return;
+  }
+
+  // status === 'active': figure out which step we're "on" based on how
+  // long the job has actually been active, and render the whole list with
+  // earlier steps checked off, the current one spinning, later ones dim.
+  const secs = activeElapsedSeconds || 0;
+  let currentIdx = 0;
+  ANALYSIS_STEPS.forEach((s, i) => { if (secs >= s.atSeconds) currentIdx = i; });
+
+  const stepsHtml = ANALYSIS_STEPS.map((s, i) => {
+    const cls = i < currentIdx ? 'done' : i === currentIdx ? 'active' : '';
+    const icon = i < currentIdx ? '✓' : i === currentIdx ? '<span class="mini-spin"></span>' : '';
+    return `<div class="step-item ${cls}"><span class="step-icon">${icon}</span><span>${s.label}</span></div>`;
+  }).join('');
+
+  resultsPanel.innerHTML = `
+    <div class="loading-state">
+      <div class="step-list">${stepsHtml}</div>
+      ${elapsedText}
+    </div>`;
+}
+
+function renderEmpty(){
+  resultsPanel.innerHTML = `
+      <div class="home-dashboard">
+        <div class="home-hero">
+          <div>
+            <div class="hh-eyebrow">Welcome</div>
+            <h1>Everything you need to review an RFP, in one place</h1>
+            <p>Upload a document on the left and this screen turns into a full compliance breakdown — checklists, risks, deliverables, and a clear Go / No-Go call. Everything this tool can do is laid out below.</p>
+          </div>
+          <div class="home-hero-actions">
+            <button class="home-hero-btn" data-home-action="focus-upload">📤 Upload your first RFP</button>
+            <button class="home-hero-btn secondary" data-home-action="open-dashboard">📊 View insights dashboard</button>
+          </div>
+        </div>
+
+        <div class="home-steps">
+          <div class="home-step"><div class="hs-num">1</div><div><h4>Upload</h4><p>Drop in one RFP, several at once, or a whole folder.</p></div></div>
+          <div class="home-step"><div class="hs-num">2</div><div><h4>AI reads it for you</h4><p>Every requirement, deadline, and risk gets pulled out and checked.</p></div></div>
+          <div class="home-step"><div class="hs-num">3</div><div><h4>You decide</h4><p>Get a plain Go / Caution / No-Go call with the reasoning behind it.</p></div></div>
+        </div>
+
+        <div class="home-section-label">What this tool can do</div>
+        <div class="capability-grid">
+          <div class="cap-card">
+            <div class="cap-top"><div class="cap-icon">📤</div><h3>Upload &amp; analyse</h3></div>
+            <p>Add one RFP or several, and get a full compliance breakdown — financial, legal, operations, and technical — in minutes.</p>
+            <button class="cap-cta" data-home-action="focus-upload">Go to upload ↑</button>
+          </div>
+          <div class="cap-card">
+            <div class="cap-top"><div class="cap-icon">📁</div><h3>Whole-folder batch</h3></div>
+            <p>Point it at a folder of RFPs and every document inside gets analysed in one run, no need to add them one by one.</p>
+            <button class="cap-cta" data-home-action="folder-upload">Choose a folder</button>
+          </div>
+          <div class="cap-card">
+            <div class="cap-top"><div class="cap-icon">🗂️</div><h3>Case history</h3></div>
+            <p>Every completed analysis is saved automatically and stays searchable across browsers and devices.</p>
+            <button class="cap-cta" data-home-action="focus-history">View case history</button>
+          </div>
+          <div class="cap-card">
+            <div class="cap-top"><div class="cap-icon">📊</div><h3>Insights dashboard</h3></div>
+            <p>Track your win rate, average fit score, and totals rolled up across every RFP you've ever reviewed.</p>
+            <button class="cap-cta" data-home-action="open-dashboard">Open dashboard</button>
+          </div>
+          <div class="cap-card">
+            <div class="cap-top"><div class="cap-icon">📚</div><h3>Past-proposal library</h3></div>
+            <p>Upload proposals you've already won so future drafts can reuse the language that worked before.</p>
+            <button class="cap-cta" data-home-action="open-library">Open library</button>
+          </div>
+          <div class="cap-card">
+            <div class="cap-top"><div class="cap-icon">💬</div><h3>Chat with your RFP</h3></div>
+            <p>Ask plain questions about a document — "what's the insurance minimum?" — and get answers sourced straight from the text.</p>
+            <span class="cap-tag">On a completed analysis</span>
+            <button class="cap-cta" data-home-action="focus-upload">Start by uploading →</button>
+          </div>
+          <div class="cap-card">
+            <div class="cap-top"><div class="cap-icon">✍️</div><h3>Proposal writer</h3></div>
+            <p>Three AI reviewers — compliance, drafting, and editing — turn a "Go" decision into a real first draft.</p>
+            <span class="cap-tag">On a completed analysis</span>
+            <button class="cap-cta" data-home-action="focus-upload">Start by uploading →</button>
+          </div>
+          <div class="cap-card">
+            <div class="cap-top"><div class="cap-icon">⚠️</div><h3>Risk radar</h3></div>
+            <p>Unfair payment terms, liability gaps, IP issues, and termination clauses get flagged automatically, with severity.</p>
+            <span class="cap-tag">On a completed analysis</span>
+            <button class="cap-cta" data-home-action="focus-upload">Start by uploading →</button>
+          </div>
+          <div class="cap-card">
+            <div class="cap-top"><div class="cap-icon">📄</div><h3>Export center</h3></div>
+            <p>Download a formatted PDF report or a structured JSON file for any completed analysis, ready to share.</p>
+            <span class="cap-tag">On a completed analysis</span>
+            <button class="cap-cta" data-home-action="focus-upload">Start by uploading →</button>
+          </div>
+          <div class="cap-card">
+            <div class="cap-top"><div class="cap-icon">🔀</div><h3>Addendum checker</h3></div>
+            <p>Upload a revised RFP and see exactly what changed since the version you already reviewed.</p>
+            <span class="cap-tag">On a completed analysis</span>
+            <button class="cap-cta" data-home-action="focus-upload">Start by uploading →</button>
+          </div>
+          <div class="cap-card">
+            <div class="cap-top"><div class="cap-icon">📝</div><h3>Team notes</h3></div>
+            <p>Colleagues can leave notes on any checklist item, right where the item lives, without a separate tool.</p>
+            <span class="cap-tag">On a completed analysis</span>
+            <button class="cap-cta" data-home-action="focus-upload">Start by uploading →</button>
+          </div>
+          <div class="cap-card">
+            <div class="cap-top"><div class="cap-icon">🔔</div><h3>Automated alerts</h3></div>
+            <p>Get a Slack or email ping the moment an analysis finishes, or when a submission deadline is closing in.</p>
+            <span class="cap-tag">Set up by your admin</span>
+          </div>
+        </div>
+      </div>
+`;
+  currentBatchEntries = [];
+  currentSourceMeta = {};
+  setActiveHistoryItem(null);
+}
+
+// ---------------------------------------------------------------------
+// Main results renderer
+// ---------------------------------------------------------------------
+let currentSourceMeta = {};
+
+function renderResults(data, meta){
+  lastResult = data;
+  meta = meta || {};
+  currentSourceMeta = meta;
+
+  // server.js already forces recommendation to 'NO-GO' when deadline_passed
+  // is true (see applyDeterministicChecks), but we still show an explicit
+  // banner here so a passed deadline is never just a color on a badge.
+  const rec = (data.recommendation || 'CAUTION').toUpperCase();
+  const recClass = rec === 'GO' ? 'go' : rec === 'NO-GO' ? 'nogo' : 'caution';
+  const score = typeof data.fit_score === 'number' ? data.fit_score : '—';
+
+  let html = '';
+
+  // Source strip — which uploaded RFP this result belongs to, so switching
+  // between multiple analysed documents (via history or the batch tabs
+  // below) is never ambiguous.
+  if (meta.fileName) {
+    html += `
+      <div class="source-strip">
+        <span class="ss-icon">📄</span>
+        <span class="ss-name">${escapeHtml(meta.fileName)}</span>
+        ${meta.savedAt ? `<span class="ss-date">${escapeHtml(fmtHistoryDate(meta.savedAt))}</span>` : ''}
+        ${meta.fromHistory ? `<span class="ss-tag">from history</span>` : ''}
+      </div>`;
+  }
+
+  // Batch tab strip — only shown when the most recent "Analyse" run
+  // processed more than one document, so the user can flip between the
+  // documents just analysed without hunting through the sidebar.
+  if (currentBatchEntries.length > 1) {
+    html += `<div class="batch-tabs">${currentBatchEntries.map(e => {
+      const eRec = (e.recommendation || 'CAUTION').toUpperCase();
+      const eCls = eRec === 'GO' ? 'go' : eRec === 'NO-GO' ? 'nogo' : 'caution';
+      return `
+      <button class="batch-tab ${eCls} ${e.id === activeHistoryId ? 'active' : ''}" data-batch-id="${e.id}">
+        <span class="bt-name">${escapeHtml(e.fileName)}</span>
+        <span class="bt-score">${typeof e.score === 'number' ? e.score : '—'}</span>
+      </button>`;
+    }).join('')}</div>`;
+  }
+
+  // Phase 5, item #22 — headline metrics strip. Shown immediately at the
+  // top of every result (right after the source strip / batch tabs) so the
+  // three numbers someone glances at first — match score, how much the
+  // extraction actually pulled out, and how many risks it flagged — don't
+  // require scrolling past banners to find. Reuses the exact same counting
+  // logic as summarizeAnalysisForHistory() (checklistCount + deliverableCount)
+  // so this number always matches what the history sidebar already shows.
+  {
+    const itemsExtracted = ['financial_checklist','legal_checklist','operations_checklist','technical_checklist']
+      .reduce((sum, key) => sum + (Array.isArray(data[key]) ? data[key].length : 0), 0)
+      + (data.deliverables_checklist || []).reduce((sum, c) => sum + ((c.items || []).length), 0);
+    const risks = Array.isArray(data.risk_flags) ? data.risk_flags : [];
+    const highRisks = risks.filter(r => r && r.severity === 'HIGH').length;
+    const risksClass = highRisks > 0 ? 'has-high-risk' : (risks.length > 0 ? 'has-risks' : '');
+
+    html += `
+      <div class="headline-metrics">
+        <div class="hl-metric hl-score">
+          <div class="hl-value">${score}</div>
+          <div class="hl-label">Match Score</div>
+        </div>
+        <div class="hl-metric hl-items">
+          <div class="hl-value">${itemsExtracted}</div>
+          <div class="hl-label">Items Extracted</div>
+        </div>
+        <div class="hl-metric hl-risks">
+          <div class="hl-value ${risksClass}">${risks.length}</div>
+          <div class="hl-label">Risks Flagged${highRisks > 0 ? ` (${highRisks} high)` : ''}</div>
+        </div>
+      </div>`;
+  }
+
+  if (data.deadline_passed === true) {
+    html += `
+      <div class="deadline-banner">
+        <span class="dicon">⚠</span>
+        <span>Submission deadline (${escapeHtml(data.deadline_date_iso || 'unknown date')}) has already passed as of today. Confirm whether an addendum extended it before treating this RFP as active.</span>
+      </div>`;
+  } else if (data.deadline_passed === null || data.deadline_passed === undefined) {
+    html += `
+      <div class="deadline-banner unknown">
+        <span class="dicon">?</span>
+        <span>Could not confidently locate a submission deadline in this document — verify the due date manually.</span>
+      </div>`;
+  } else if (data.deadline_urgent === true) {
+    html += `
+      <div class="deadline-banner urgent">
+        <span class="dicon">⏰</span>
+        <span>Only ${escapeHtml(String(data.deadline_days_remaining))} day(s) left to submit (deadline ${escapeHtml(data.deadline_date_iso || 'unknown date')}). Don't let this one slip past the deadline check.</span>
+      </div>`;
+  }
+
+  // Phase 2, item #5 — confidence summary banner. Server-computed from the
+  // "confidence" field on every checklist item (see runConfidenceReview in
+  // server.js); tells the reader up front how much of this result needs a
+  // second pair of eyes before anyone acts on it.
+  if (data.confidence_summary && data.confidence_summary.total_items_scored) {
+    const cs = data.confidence_summary;
+    const pct = cs.total_items_scored ? Math.round((cs.low_confidence_count / cs.total_items_scored) * 100) : 0;
+    const bannerClass = cs.low_confidence_count > 0 ? 'needs-review' : 'clear';
+    html += `
+      <div class="confidence-banner ${bannerClass}">
+        <span class="dicon">${cs.low_confidence_count > 0 ? '🔎' : '✅'}</span>
+        <span>
+          ${cs.low_confidence_count > 0
+            ? `<strong>${cs.low_confidence_count} of ${cs.total_items_scored}</strong> extracted items (${pct}%) scored below the ${cs.review_threshold}% confidence threshold and are flagged <strong>NEEDS REVIEW</strong> below — look for the 🔎 badge.`
+            : `All ${cs.total_items_scored} extracted items met the ${cs.review_threshold}% confidence threshold.`}
+          Average confidence: ${cs.average_confidence ?? '—'}%.
+        </span>
+      </div>`;
+  }
+
+  // Phase 3, item #7 — second-model cross-check banner. Shows only when we
+  // actually ran it (status 'ok' or 'disagreement'); silent for
+  // 'skipped'/'error' since those aren't findings the user needs to act on.
+  if (data.cross_check && (data.cross_check.status === 'disagreement' || data.cross_check.status === 'ok')) {
+    const cc = data.cross_check;
+    if (cc.status === 'disagreement') {
+      const disagreed = cc.items.filter(i => !i.agrees);
+      html += `
+        <div class="crosscheck-banner disagreement">
+          <span class="dicon">🔁</span>
+          <span>
+            <strong>Second-model cross-check (${escapeHtml(cc.model)})</strong> disagrees with the primary analysis on ${disagreed.length} field(s):
+            <ul>
+              ${disagreed.map(i => `<li><strong>${escapeHtml(i.label)}:</strong> primary says "${escapeHtml(String(i.primary_value))}", cross-check says "${escapeHtml(String(i.cross_check_value))}"</li>`).join('')}
+            </ul>
+          </span>
+        </div>`;
+    } else {
+      html += `
+        <div class="crosscheck-banner agree">
+          <span class="dicon">🔁</span>
+          <span>Second-model cross-check (${escapeHtml(cc.model)}) independently confirmed payment terms, deadline, insurance figures, and disqualifiers.</span>
+        </div>`;
+    }
+  }
+
+  // Phase 5, item #21 — outcome control. Only shown for a saved (history)
+  // analysis, since a brand-new in-flight result has no id to PATCH yet.
+  // What gets picked here is exactly what feeds the win-rate math on the
+  // aggregate dashboard.
+  const outcomeVal = meta.outcome || 'pending';
+  const outcomeButtons = meta.id ? `
+      <div class="outcome-row">
+        <span class="oc-label">Outcome:</span>
+        ${['won','lost','no_bid','pending'].map(o => `
+          <button class="outcome-btn ${outcomeVal === o ? 'active' : ''}" data-outcome="${o}" data-analysis-id="${meta.id}">${o === 'no_bid' ? 'No-bid' : o.charAt(0).toUpperCase() + o.slice(1)}</button>
+        `).join('')}
+      </div>` : '';
+
+  html += `
+    <div class="verdict-card ${recClass}">
+      <div class="verdict-score">${score}<span class="lbl">FIT SCORE</span></div>
+      <div class="verdict-body">
+        <div class="verdict-tag">${escapeHtml(rec)}</div>
+        <p>${escapeHtml(data.recommendation_summary || '')}</p>
+        ${outcomeButtons}
+      </div>
+    </div>`;
+
+  html += `<div class="results-grid">`;
+
+  if (Array.isArray(data.disqualifiers) && data.disqualifiers.length){
+    html += `<div>
+      <h3 class="block-title">⚠️ Disqualifiers</h3>
+      <div class="disq-box"><ul style="list-style:none;">
+        ${data.disqualifiers.map(d => `<li>${escapeHtml(d)}</li>`).join('')}
+      </ul></div>
+    </div>`;
+  }
+
+  // Parent/child deliverables — collapsible sections, RFP reference per child
+  html += renderDeliverablesSection(data.deliverables_checklist);
+
+  // Raw insurance figures extracted by the model, threshold math done server-side
+  html += renderInsuranceTable(data);
+  html += renderRiskFlagsSection(data.risk_flags);
+
+  html += renderChecklistTable('Financial / Accounting Checklist', '💰', data.financial_checklist);
+  html += renderChecklistTable('Legal Checklist', '⚖️', data.legal_checklist);
+  html += renderChecklistTable('Operations Checklist', '🗂️', data.operations_checklist);
+  html += renderChecklistTable('Technical Checklist', '🛠️', data.technical_checklist);
+
+  html += `</div>`;
+  html += `
+    <div class="actions-row">
+      <button class="save-btn" id="saveBtn">💾 Save HTML</button>
+      <button class="save-btn" id="exportPdfBtn">📄 Export PDF</button>
+      <button class="save-btn" id="exportJsonBtn">🧾 Export JSON</button>
+      <button class="save-btn" id="generateProposalBtn">✍️ Generate Proposal Draft</button>
+      <button class="save-btn" id="checkAddendumBtn">🔄 Check for Addendum</button>
+      <button class="save-btn" id="chatWithRfpBtn">💬 Chat with this RFP</button>
+      <a class="reset-link" id="resetLink" style="margin-top:0;">↺ Analyse another document</a>
+    </div>
+    <div id="proposalPanel"></div>
+    <div id="addendumPanel"></div>
+    <div id="chatPanel"></div>`;
+
+  resultsPanel.innerHTML = html;
+  document.getElementById('resetLink').addEventListener('click', () => {
+    renderEmpty();
+  });
+  document.getElementById('saveBtn').addEventListener('click', (e) => {
+    saveChecklistToFile();
+    const btn = e.currentTarget;
+    const original = btn.innerHTML;
+    btn.innerHTML = '✓ Saved';
+    btn.classList.add('saved');
+    setTimeout(() => { btn.innerHTML = original; btn.classList.remove('saved'); }, 1800);
+  });
+  document.getElementById('exportPdfBtn').addEventListener('click', (e) => handleExportButtonClick(e, 'pdf'));
+  document.getElementById('exportJsonBtn').addEventListener('click', (e) => handleExportButtonClick(e, 'json'));
+  document.getElementById('generateProposalBtn').addEventListener('click', (e) => handleGenerateProposalClick(e));
+  document.getElementById('checkAddendumBtn').addEventListener('click', () => {
+    document.getElementById('addendumFileInput').click();
+  });
+  document.getElementById('chatWithRfpBtn').addEventListener('click', (e) => handleChatButtonClick(e));
+  resultsPanel.querySelectorAll('.outcome-btn').forEach(btn => {
+    btn.addEventListener('click', () => handleOutcomeClick(btn.dataset.analysisId, btn.dataset.outcome, btn));
+  });
+  resultsPanel.querySelectorAll('.batch-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      const id = tab.dataset.batchId;
+      const entry = currentBatchEntries.find(e => e.id === id) || loadHistory().find(h => h.id === id);
+      if (!entry) return;
+      renderResults(entry.data, { id: entry.id, fileName: entry.fileName, savedAt: entry.savedAt, outcome: entry.outcome });
+      setActiveHistoryItem(id);
+    });
+  });
+
+ loadNotesForCurrentAnalysis();
+
+}
+
+// ---------------------------------------------------------------------
+// Deliverables: PARENT (category) sections, each containing CHILD items.
+// Each child shows its own RFP reference ("§ ...") so the source of every
+// requirement is visible without opening a separate table column.
+// ---------------------------------------------------------------------
+function renderDeliverablesSection(categories) {
+  if (!Array.isArray(categories) || !categories.length) return '';
+
+  const totalItems = categories.reduce((sum, c) => sum + ((c.items || []).length), 0);
+
+  let html = `<div>
+    <h3 class="block-title">📦 Deliverables Required by RFP <span class="count">${totalItems} items across ${categories.length} sections</span></h3>`;
+
+  categories.forEach((cat, idx) => {
+    const items = cat.items || [];
+    html += `
+    <details class="deliv-category" ${idx === 0 ? 'open' : ''}>
+      <summary class="deliv-cat-header">
+        <span class="chev">▶</span>
+        <span class="deliv-cat-name">${escapeHtml(cat.category || 'Untitled section')}</span>
+        <span class="deliv-cat-count">${items.length} item${items.length === 1 ? '' : 's'}</span>
+        ${cat.due_date && cat.due_date !== 'N/A' ? `<span class="deliv-due">📅 ${escapeHtml(cat.due_date)}</span>` : ''}
+      </summary>
+      <div class="deliv-children">
+        ${items.map(item => renderDeliverableChild(item)).join('')}
+      </div>
+    </details>`;
+  });
+
+  html += `</div>`;
+  return html;
+}
+
+// ---------------------------------------------------------------------
+// Parses a "reason" string produced by the backend into its component
+// parts. The prompt requires the model to prefix every reason with
+// "Page N, Section X.Y: <explanation>" (see PAGE CITATION RULE in
+// server.js). This gives us page + section as separate badges instead of
+// dumping the whole citation as one undifferentiated sentence.
+// Falls back gracefully for older-format reasons that only have a
+// section (no page) or no structured prefix at all.
+// ---------------------------------------------------------------------
+function parseCitation(reason) {
+  const text = reason || 'Not explicitly stated in RFP — verify manually.';
+
+  // Full format: "Page 13, Section XI.B.2: rest of explanation"
+  let m = text.match(/^Page\s+([^,]+),\s*([^:]{1,50}):\s*(.*)$/i);
+  if (m) return { page: m[1].trim(), section: m[2].trim(), rest: m[3].trim() };
+
+  // Page only, no section label: "Page 13: rest"
+  m = text.match(/^Page\s+([^:]{1,20}):\s*(.*)$/i);
+  if (m) return { page: m[1].trim(), section: null, rest: m[2].trim() };
+
+  // Older/fallback format: "Section XI.B.2: rest" (no page)
+  m = text.match(/^([^:]{1,50}):\s*(.*)$/);
+  if (m) return { page: null, section: m[1].trim(), rest: m[2].trim() };
+
+  // No structured prefix at all — render as-is.
+  return { page: null, section: null, rest: text };
+}
+
+function renderCitationBadges(reason) {
+  const { page, section } = parseCitation(reason);
+  let badges = '';
+  if (page) badges += `<span class="cite-badge cite-page">📄 Page ${escapeHtml(page)}</span>`;
+  if (section) badges += `<span class="cite-badge cite-section">§ ${escapeHtml(section)}</span>`;
+  return badges;
+}
+
+// Shows which source document (filename) a finding came from, when multiple
+// RFP-related documents were merged into one analysis. Populated by the
+// backend's "source_document" field (see buildMergedPrompt in server.js).
+function renderDocBadge(sourceDoc) {
+  if (!sourceDoc) return '';
+  return `<span class="cite-badge cite-doc" title="${escapeHtml(sourceDoc)}">📁 ${escapeHtml(sourceDoc)}</span>`;
+}
+
+// Phase 2, item #5 — per-item confidence badge. "confidence" and
+// "needs_human_review" are computed server-side in runConfidenceReview
+// (server.js), not by the frontend — this just displays what the backend
+// already decided.
+function renderConfidenceBadge(item) {
+  if (!item || typeof item.confidence !== 'number') return '';
+  const low = item.needs_human_review === true;
+  const icon = low ? '🔎' : '✓';
+  const title = low
+    ? 'Below the confidence review threshold — verify this against the RFP text before relying on it.'
+    : 'Meets the confidence review threshold.';
+  return `<span class="cite-badge cite-confidence${low ? ' low' : ''}" title="${escapeHtml(title)}">${icon} ${item.confidence}% confidence</span>`;
+}
+
+function renderDeliverableChild(item) {
+  const dec = (item.decision || '').toUpperCase();
+  const decClass = dec.includes('ACTION') ? 'dec-nogo' : dec === 'OPTIONAL' ? 'dec-review' : 'dec-go';
+  const mandClass = (item.mandatory || '').toUpperCase() === 'YES' ? 'ans-yes' : 'ans-na';
+
+  const { page, section, rest } = parseCitation(item.reason);
+  const badgesHtml = renderCitationBadges(item.reason) + renderDocBadge(item.source_document) + renderConfidenceBadge(item);
+
+  return `
+    <div class="deliv-child">
+      <div class="deliv-child-top">
+        <span class="deliv-child-title">${escapeHtml(item.item || '')}</span>
+        <span class="deliv-child-tags">
+          <span class="cl-ans ${mandClass}">${escapeHtml(item.mandatory || 'N/A')}</span>
+          <span class="cl-dec ${decClass}">${escapeHtml(item.decision || '—')}</span>
+        </span>
+      </div>
+  ${badgesHtml ? `<div class="deliv-child-badges">${badgesHtml}</div>` : ''}
+      <div class="deliv-child-ref">${escapeHtml(rest)}</div>
+      <div>${noteButtonHtml('deliv:' + (item.item || ''), item.item)}</div>
+    </div>`;
+}
+
+
+
+// ---------------------------------------------------------------------
+// Insurance figures extracted by the model — threshold comparison is done
+// server-side (applyDeterministicChecks in server.js), we only render it.
+// ---------------------------------------------------------------------
+function renderInsuranceTable(data){
+  if (!Array.isArray(data.insurance_figures) || !data.insurance_figures.length) return '';
+
+  const threshold = data.insurance_threshold_used;
+  const exceeds = data.insurance_exceeds_threshold;
+
+  let note = '';
+  if (typeof exceeds === 'boolean' && typeof threshold === 'number') {
+    note = exceeds
+      ? `<p class="insurance-note over">Highest APPLICABLE single coverage ($${(data.insurance_highest_single_coverage || 0).toLocaleString()}) exceeds your configured threshold ($${threshold.toLocaleString()}). Rows marked "Not applicable" below are excluded from this comparison.</p>`
+      : `<p class="insurance-note under">All applicable figures are within your configured threshold ($${threshold.toLocaleString()}). Rows marked "Not applicable" below (e.g. other risk tiers) are excluded from this comparison.</p>`;
+  }
+  if (data.insurance_tier_needs_review) {
+    note += `<p class="insurance-note" style="color:var(--caution);">⚠ Could not confidently determine which coverage tier applies from the RFP text — have this reviewed manually before relying on the threshold check.</p>`;
+  }
+
+  return `<div>
+    <h3 class="block-title">🛡️ Insurance Figures Extracted <span class="count">${data.insurance_figures.length}</span></h3>
+    ${note}
+    <div class="cl-table-wrap">
+      <table class="cl-table insurance-table">
+        <thead><tr>
+          <th>Coverage Type</th>
+          <th style="width:120px;text-align:right;">Amount</th>
+          <th style="width:170px;">Basis (as stated in RFP)</th>
+          <th style="width:150px;">Applies to This Contract?</th>
+        </tr></thead>
+        <tbody>
+          ${data.insurance_figures.map(f => {
+            const isStatutory = f.is_statutory === true;
+            const applies = f.applies_to_this_contract !== false;
+            const amt = Number(f.amount);
+            const hasAmount = !isNaN(amt) && amt > 0;
+            const cls = (threshold && applies && !isStatutory && hasAmount) ? (amt > threshold ? 'over' : 'under') : '';
+            const rowStyle = (!applies) ? 'opacity:0.5;' : '';
+            const amountDisplay = isStatutory ? 'Statutory' : (hasAmount ? `$${amt.toLocaleString()}` : '—');
+            const appliesTag = !applies
+              ? `<span class="cl-dec dec-review" title="${escapeHtml(f.tier_note || '')}">NOT APPLICABLE</span>`
+              : `<span class="cl-dec dec-go">APPLIES</span>`;
+            return `<tr style="${rowStyle}">
+              <td>${escapeHtml(f.coverage_type || '')}</td>
+              <td class="${cls}" style="text-align:right;">${amountDisplay}</td>
+              <td>${escapeHtml(f.basis || 'not specified')}</td>
+              <td>${appliesTag}</td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>
+  </div>`;
+}
+
+// ---------------------------------------------------------------------
+// Risk flags — own dedicated section, separated from the general legal
+// checklist. Populated server-side (risk_flags in server.js).
+// ---------------------------------------------------------------------
+function renderRiskFlagsSection(riskFlags){
+  if (!Array.isArray(riskFlags) || !riskFlags.length) return '';
+
+  return `<div>
+    <h3 class="block-title">🚩 Risk & Legal Flags <span class="count">${riskFlags.length}</span></h3>
+    ${riskFlags.map(r => {
+      const sev = (r.severity || 'MEDIUM').toUpperCase();
+      const badgesHtml = renderCitationBadges(r.reason) + renderDocBadge(r.source_document);
+      const { rest } = parseCitation(r.reason);
+      return `
+      <div class="risk-card">
+        <div class="risk-top">
+          <span class="risk-type">${escapeHtml(r.risk_type || 'Other')}</span>
+          <span class="risk-sev ${sev}">${escapeHtml(sev)}</span>
+        </div>
+        <div class="risk-desc">${escapeHtml(r.description || '')}</div>
+      ${badgesHtml ? `<div class="deliv-child-badges" style="margin-bottom:4px;">${badgesHtml}</div>` : ''}
+        <div class="risk-reason">${escapeHtml(rest)}</div>
+        <div style="margin-top:6px;">${noteButtonHtml('risk:' + (r.risk_type || '') + ':' + (r.description || '').slice(0,30), r.risk_type)}</div>
+      </div>`;
+    }).join('')}
+  </div>`;
+}
+
+
+
+// ---------------------------------------------------------------------
+// Flat checklist tables (Financial / Legal / Operations / Technical)
+// ---------------------------------------------------------------------
+function renderChecklistTable(title, icon, items) {
+  if (!Array.isArray(items) || !items.length) return '';
+  return `<div>
+    <h3 class="block-title">${icon} ${title}</h3>
+    <div class="cl-table-wrap">
+      <table class="cl-table">
+        <thead>
+          <tr>
+            <th>Checklist Item</th>
+            <th style="width:60px;text-align:center;">Yes/No</th>
+            <th style="width:90px;text-align:center;">Decision</th>
+            <th>Reason from RFP</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${items.map(item => {
+            const ans = (item.answer || '').toUpperCase();
+            const dec = (item.decision || '').toUpperCase();
+            const ansClass = ans === 'YES' ? 'ans-yes' : ans === 'NO' ? 'ans-no' : 'ans-na';
+            const decClass = dec === 'GO' ? 'dec-go' : dec === 'NO-GO' ? 'dec-nogo' : dec.includes('ESCALATE') ? 'dec-caution' : 'dec-review';
+            return `<tr>
+              <td>
+                <div class="cl-item-name">${escapeHtml(item.item || '')}</div>
+                <div class="cl-item-q">${escapeHtml(item.question || '')}</div>
+              </td>
+              <td style="text-align:center;"><span class="cl-ans ${ansClass}">${escapeHtml(item.answer || 'N/A')}</span></td>
+              <td style="text-align:center;"><span class="cl-dec ${decClass}">${escapeHtml(item.decision || '—')}</span></td>
+             <td class="cl-reason">
+                <div class="deliv-child-badges" style="margin-bottom:4px;">${renderCitationBadges(item.reason)}${renderDocBadge(item.source_document)}${renderConfidenceBadge(item)}</div>
+                ${escapeHtml(parseCitation(item.reason).rest)}
+                <div style="margin-top:6px;">${noteButtonHtml(title + ':' + (item.item || ''), item.item)}</div>
+              </td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>
+  </div>`;
+}
+
+// ---------------------------------------------------------------------
+// Save checklist to a standalone HTML file (mirrors the live rendering,
+// including the parent/child deliverable sections and insurance table)
+// ---------------------------------------------------------------------
+// ---------------------------------------------------------------------
+// PDF / JSON export via the backend's new /api/analyses/:id/export.*
+// endpoints (real server-generated PDF + a downloadable JSON file of the
+// full analysis). Requires the analysis to have an `id` — i.e. it was
+// actually saved by the worker, which is true for anything that finished
+// analysing or that came from history. Both buttons share this handler.
+// ---------------------------------------------------------------------
+async function downloadExport(id, format){
+  const res = await fetch(`${BACKEND_URL}/api/analyses/${id}/export.${format}`);
+  if (!res.ok) {
+    const errBody = await res.json().catch(() => ({}));
+    throw new Error(errBody.error || `Export failed (HTTP ${res.status}).`);
+  }
+  const blob = await res.blob();
+  const disposition = res.headers.get('Content-Disposition') || '';
+  const match = /filename="([^"]+)"/.exec(disposition);
+  const filename = match ? match[1] : `analysis.${format}`;
+
+  const blobUrl = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = blobUrl;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(blobUrl);
+}
+
+function handleExportButtonClick(e, format){
+  const btn = e.currentTarget;
+  const original = btn.innerHTML;
+  const id = currentSourceMeta.id;
+
+  if (!id) {
+    btn.innerHTML = '✗ Not available';
+    setTimeout(() => { btn.innerHTML = original; }, 1800);
+    return;
+  }
+
+  btn.innerHTML = '⏳ Exporting…';
+  downloadExport(id, format)
+    .then(() => {
+      btn.innerHTML = '✓ Downloaded';
+      btn.classList.add('saved');
+    })
+    .catch((err) => {
+      console.error(`${format.toUpperCase()} export error:`, err.message);
+      btn.innerHTML = '✗ Failed';
+    })
+    .finally(() => {
+      setTimeout(() => { btn.innerHTML = original; btn.classList.remove('saved'); }, 1800);
+    });
+}
+
+// ---------------------------------------------------------------------
+// Phase 3, item #8 — multi-agent proposal pipeline (frontend wiring).
+// Kicks off POST /api/proposal/generate for the currently-shown analysis,
+// polls the same generic GET /api/jobs/:id endpoint the analysis flow
+// uses, then renders the 3-agent trail + final draft into #proposalPanel.
+// ---------------------------------------------------------------------
+
+// Simple poll loop (no RFP-specific step visuals — this is a different,
+// shorter set of steps: compliance -> writing -> review) that just updates
+// the trigger button's label with elapsed time.
+async function pollProposalJobUntilDone(jobId, onTick){
+  const POLL_MS = 1500;
+  const startedAt = Date.now();
+  while (true) {
+    const res = await fetch(`${BACKEND_URL}/api/jobs/${jobId}`);
+    const job = await res.json();
+    if (!res.ok) throw new Error(job.error || 'Could not check proposal status.');
+    if (job.status === 'completed' || job.status === 'failed') return job;
+    const elapsed = Math.round((Date.now() - startedAt) / 1000);
+    if (onTick) onTick(job.status, elapsed);
+    await new Promise(r => setTimeout(r, POLL_MS));
+  }
+}
+
+async function handleGenerateProposalClick(e){
+  const btn = e.currentTarget;
+  const analysisId = currentSourceMeta.id;
+  const panel = document.getElementById('proposalPanel');
+  if (!analysisId) {
+    btn.innerHTML = '✗ Not available';
+    setTimeout(() => { btn.innerHTML = '✍️ Generate Proposal Draft'; }, 1800);
+    return;
+  }
+
+  const original = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '⏳ Compliance Agent working…';
+  panel.innerHTML = '';
+
+  try {
+    const enqueueRes = await fetch(`${BACKEND_URL}/api/proposal/generate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ analysisId })
+    });
+    const enqueueData = await enqueueRes.json();
+    if (!enqueueRes.ok) throw new Error(enqueueData.error || 'Could not start proposal generation.');
+
+    // We can't get real per-agent progress events without three separate
+    // HTTP round-trips (see the analysis polling comment above for the same
+    // tradeoff) — so once the job is running, cycle the button label through
+    // the three agents in their fixed order, timed against how long each
+    // realistically takes, purely as a "this is still working" indicator.
+    const AGENT_STEPS = [
+      { label: '⏳ Compliance Agent working…', atSeconds: 0 },
+      { label: '⏳ Proposal Writer Agent drafting…', atSeconds: 12 },
+      { label: '⏳ Reviewer Agent checking…', atSeconds: 30 }
+    ];
+    const job = await pollProposalJobUntilDone(enqueueData.id, (status, elapsed) => {
+      if (status !== 'active') return;
+      const step = [...AGENT_STEPS].reverse().find(s => elapsed >= s.atSeconds) || AGENT_STEPS[0];
+      btn.innerHTML = `${step.label} (${elapsed}s)`;
+    });
+    if (job.status === 'failed') throw new Error(job.error || 'Proposal generation failed.');
+
+    renderProposalPanel(job.data, job.id, job.fileName);
+    btn.innerHTML = '✓ Draft ready below';
+  } catch (err) {
+    console.error('Proposal generation error:', err.message);
+    panel.innerHTML = `<div class="crosscheck-banner disagreement"><span class="dicon">⚠</span><span>${escapeHtml(err.message || 'Could not generate a proposal draft.')}</span></div>`;
+    btn.innerHTML = '✗ Failed';
+  } finally {
+    setTimeout(() => { btn.innerHTML = original; btn.disabled = false; }, 2200);
+  }
+}
+
+function renderProposalPanel(data, jobId, fileName){
+  const panel = document.getElementById('proposalPanel');
+  const cb = data.compliance_brief || {};
+  const review = data.review || {};
+
+  const listOrNone = (arr) => (Array.isArray(arr) && arr.length)
+    ? `<ul>${arr.map(i => `<li>${escapeHtml(String(i))}</li>`).join('')}</ul>`
+    : `<p style="font-size:12.5px;color:var(--muted);">None found.</p>`;
+
+  panel.innerHTML = `
+    <div class="proposal-panel">
+      <h3 class="block-title">✍️ Draft Proposal <span class="count">3-agent pipeline</span></h3>
+      <div class="proposal-agent-trail">
+        <span>1. Compliance Agent</span><span>→</span>
+        <span>2. Proposal Writer Agent</span><span>→</span>
+        <span>3. Reviewer Agent</span>
+      </div>
+
+      <div class="proposal-section">
+        <h4>Compliance brief</h4>
+        <p style="font-size:12.5px;color:var(--ink);opacity:0.9;margin-bottom:8px;">${escapeHtml(cb.compliance_summary || '')}</p>
+        <p style="font-size:11.5px;color:var(--muted);margin-bottom:2px;">Mandatory forms:</p>${listOrNone(cb.mandatory_forms)}
+        <p style="font-size:11.5px;color:var(--muted);margin-bottom:2px;">Mandatory certifications:</p>${listOrNone(cb.mandatory_certifications)}
+        <p style="font-size:11.5px;color:var(--muted);margin-bottom:2px;">Compliance risks:</p>${listOrNone(cb.compliance_risks)}
+      </div>
+
+      <div class="proposal-section">
+        <h4>Reviewer Agent notes</h4>
+        ${review.approved
+          ? `<p class="proposal-review-ok">✓ Draft approved as-is — no compliance issues found.</p>`
+          : `<p style="font-size:11.5px;color:var(--muted);margin-bottom:2px;">Issues found and fixed:</p>${listOrNone(review.issues_found)}`}
+      </div>
+
+      <div class="proposal-section">
+        <h4>Final draft</h4>
+        <div class="proposal-text">${escapeHtml(data.final_proposal_text || '')}</div>
+      </div>
+
+      <div class="actions-row" style="margin-top:14px;">
+        <button class="save-btn" id="downloadProposalBtn">📥 Download draft (.txt)</button>
+      </div>
+    </div>`;
+
+  document.getElementById('downloadProposalBtn').addEventListener('click', (e) => {
+    const btn = e.currentTarget;
+    const original = btn.innerHTML;
+    btn.innerHTML = '⏳ Downloading…';
+    downloadFileFromUrl(`${BACKEND_URL}/api/proposals/${jobId}/export.txt`, `${fileName || 'proposal'}.txt`)
+      .then(() => { btn.innerHTML = '✓ Downloaded'; btn.classList.add('saved'); })
+      .catch((err) => { console.error('Proposal export error:', err.message); btn.innerHTML = '✗ Failed'; })
+      .finally(() => setTimeout(() => { btn.innerHTML = original; btn.classList.remove('saved'); }, 1800));
+  });
+}
+
+// ---------------------------------------------------------------------
+// PHASE 3, item #12 — Addendum diff tracking.
+// User picks an amended RFP file via the hidden #addendumFileInput; we
+// extract its text (reusing /api/extract, same as the main upload flow),
+// send it to POST /api/addendum-diff alongside the CURRENTLY DISPLAYED
+// analysis's id, then poll the job the same way every other background
+// job in this app is polled (GET /api/jobs/:id).
+// ---------------------------------------------------------------------
+async function handleAddendumFileSelected(file){
+  const analysisId = currentSourceMeta.id;
+  const btn = document.getElementById('checkAddendumBtn');
+  const panel = document.getElementById('addendumPanel');
+  if (!analysisId) {
+    if (btn) { btn.innerHTML = '✗ Not available'; setTimeout(() => { btn.innerHTML = '🔄 Check for Addendum'; }, 1800); }
+    return;
+  }
+
+  const original = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '⏳ Reading amended file…';
+  panel.innerHTML = '';
+
+  try {
+    // Step 1: extract text from the newly uploaded file (same endpoint the
+    // main upload flow uses — no new file-parsing code needed).
+    const fd = new FormData();
+    fd.append('file', file);
+    const extractRes = await fetch(`${BACKEND_URL}/api/extract`, { method: 'POST', body: fd });
+    const extractData = await extractRes.json();
+    if (!extractRes.ok) throw new Error(extractData.error || 'Could not read the amended file.');
+
+    // Step 2: queue the diff job against the original analysis's saved text.
+    btn.innerHTML = '⏳ Comparing documents…';
+    const enqueueRes = await fetch(`${BACKEND_URL}/api/addendum-diff`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ analysisId, newText: extractData.text, newFileName: extractData.filename })
+    });
+    const enqueueData = await enqueueRes.json();
+    if (!enqueueRes.ok) throw new Error(enqueueData.error || 'Could not start addendum comparison.');
+
+    // Step 3: poll (reuses the exact same generic job-polling loop the
+    // proposal pipeline uses — GET /api/jobs/:id works for any job kind).
+    const job = await pollProposalJobUntilDone(enqueueData.id, (status, elapsed) => {
+      if (status !== 'active') return;
+      btn.innerHTML = `⏳ Comparing documents… (${elapsed}s)`;
+    });
+    if (job.status === 'failed') throw new Error(job.error || 'Addendum comparison failed.');
+
+    renderAddendumDiffPanel(job.data);
+    btn.innerHTML = '✓ Comparison ready below';
+  } catch (err) {
+    console.error('Addendum diff error:', err.message);
+    panel.innerHTML = `<div class="crosscheck-banner disagreement"><span class="dicon">⚠</span><span>${escapeHtml(err.message || 'Could not compare the amended document.')}</span></div>`;
+    btn.innerHTML = '✗ Failed';
+  } finally {
+    setTimeout(() => { btn.innerHTML = original; btn.disabled = false; }, 2200);
+  }
+}
+
+function renderAddendumDiffPanel(data){
+  const panel = document.getElementById('addendumPanel');
+
+  if (!data.has_changes) {
+    panel.innerHTML = `
+      <div class="proposal-panel">
+        <h3 class="block-title">🔄 Addendum Comparison</h3>
+        <p style="font-size:12.5px;color:var(--go);">✓ No material differences found between "${escapeHtml(data.old_file_name || 'original')}" and "${escapeHtml(data.new_file_name || 'amended version')}" — the amended file appears to be the same document.</p>
+      </div>`;
+    return;
+  }
+
+  const ai = data.ai_summary || {};
+  const flag = (on, label) => on ? `<span class="cite-badge cite-confidence low" style="background:var(--caution-soft);color:var(--caution);">⚠ ${escapeHtml(label)}</span>` : '';
+  const flagsHtml = [
+    flag(ai.deadline_changed, 'Deadline changed'),
+    flag(ai.pricing_changed, 'Pricing changed'),
+    flag(ai.insurance_changed, 'Insurance changed'),
+    flag(ai.new_requirement_added, 'New requirement added')
+  ].filter(Boolean).join(' ');
+
+  const keyChangesHtml = (Array.isArray(ai.key_changes) && ai.key_changes.length)
+    ? `<ul>${ai.key_changes.map(c => `<li>${escapeHtml(c)}</li>`).join('')}</ul>`
+    : '';
+
+  const removedHtml = data.removed_chunks.length
+    ? `<details><summary>${data.removed_chunks.length} paragraph(s) removed</summary>${data.removed_chunks.map(c => `<div class="addendum-removed">${escapeHtml(c)}</div>`).join('')}</details>`
+    : '';
+  const addedHtml = data.added_chunks.length
+    ? `<details open><summary>${data.added_chunks.length} paragraph(s) added</summary>${data.added_chunks.map(c => `<div class="addendum-added">${escapeHtml(c)}</div>`).join('')}</details>`
+    : '';
+
+  panel.innerHTML = `
+    <div class="proposal-panel">
+      <h3 class="block-title">🔄 Addendum Comparison <span class="count">${escapeHtml(data.old_file_name || 'original')} → ${escapeHtml(data.new_file_name || 'amended')}</span></h3>
+      ${flagsHtml ? `<div style="margin-bottom:10px;">${flagsHtml}</div>` : ''}
+      <div class="proposal-section">
+        <h4>What changed</h4>
+        <p style="font-size:12.5px;color:var(--ink);opacity:0.9;margin-bottom:8px;">${escapeHtml(ai.summary || 'Changes were found — see the paragraphs below.')}</p>
+        ${keyChangesHtml}
+      </div>
+      <div class="proposal-section">
+        <h4>Raw differences</h4>
+        ${addedHtml}
+        ${removedHtml}
+      </div>
+    </div>`;
+}
+
+// ---------------------------------------------------------------------
+// PHASE 4, item #15 — "Chat with this RFP".
+// Lets someone ask direct questions about the currently-displayed,
+// already-analysed RFP and get an answer sourced back to the document
+// text. Chat history is kept per analysisId (in memory only, for this
+// page session) so switching between history items and back preserves
+// the conversation, but a page reload starts fresh — same tradeoff the
+// rest of this app makes for anything not explicitly saved server-side.
+// ---------------------------------------------------------------------
+const chatHistoryByAnalysisId = {};
+let chatPanelOpenFor = null; // analysisId the panel is currently open for, or null if closed
+
+function handleChatButtonClick(e){
+  const analysisId = currentSourceMeta.id;
+  const panel = document.getElementById('chatPanel');
+  const btn = e.currentTarget;
+
+  if (!analysisId) {
+    btn.innerHTML = '✗ Not available';
+    setTimeout(() => { btn.innerHTML = '💬 Chat with this RFP'; }, 1800);
+    return;
+  }
+
+  // Toggle: clicking again while already open for this analysis closes it.
+  if (chatPanelOpenFor === analysisId) {
+    chatPanelOpenFor = null;
+    panel.innerHTML = '';
+    return;
+  }
+
+  chatPanelOpenFor = analysisId;
+  if (!chatHistoryByAnalysisId[analysisId]) chatHistoryByAnalysisId[analysisId] = [];
+  renderChatPanel(analysisId);
+}
+
+function renderChatPanel(analysisId){
+  const panel = document.getElementById('chatPanel');
+  const thread = chatHistoryByAnalysisId[analysisId] || [];
+
+  const threadHtml = thread.length
+    ? thread.map(turn => `
+      <div class="chat-turn">
+        <div class="chat-q">${escapeHtml(turn.question)}</div>
+        <div class="chat-a ${turn.foundInDocument ? '' : 'not-found'}">${escapeHtml(turn.answer)}</div>
+        ${turn.supportingQuote ? `
+          <div class="chat-source">
+            ${turn.locationHint ? `<span class="cs-loc">${escapeHtml(turn.locationHint)}</span>` : ''}"${escapeHtml(turn.supportingQuote)}"
+          </div>` : ''}
+      </div>`).join('')
+    : `<div class="chat-empty">Ask anything about this RFP — e.g. "What's the insurance requirement?" or "Is subcontracting allowed?". Answers are sourced back to the document text.</div>`;
+
+  panel.innerHTML = `
+    <div class="chat-panel">
+      <h3 class="block-title">💬 Chat with this RFP</h3>
+      <p class="chat-hint">Answers come only from this document's text — the model is told to say so plainly when something isn't covered, rather than guess.</p>
+      <div class="chat-thread" id="chatThread">${threadHtml}</div>
+      <div class="chat-input-row">
+        <input type="text" id="chatQuestionInput" placeholder="Ask a question about this RFP…" autocomplete="off" />
+        <button class="save-btn" id="chatSendBtn">Ask</button>
+      </div>
+    </div>`;
+
+  const threadEl = document.getElementById('chatThread');
+  threadEl.scrollTop = threadEl.scrollHeight;
+
+  const input = document.getElementById('chatQuestionInput');
+  const sendBtn = document.getElementById('chatSendBtn');
+  const send = () => sendChatMessage(analysisId, input.value);
+  sendBtn.addEventListener('click', send);
+  input.addEventListener('keydown', (e) => { if (e.key === 'Enter') send(); });
+  input.focus();
+}
+
+async function sendChatMessage(analysisId, rawQuestion){
+  const question = (rawQuestion || '').trim();
+  if (!question) return;
+
+  const input = document.getElementById('chatQuestionInput');
+  const sendBtn = document.getElementById('chatSendBtn');
+  const threadEl = document.getElementById('chatThread');
+
+  // Guard against a double-fire (e.g. Enter + a near-simultaneous click)
+  // sending the same question twice or a second, now-empty request.
+  if (sendBtn.disabled) return;
+
+  input.value = '';
+  input.disabled = true;
+  sendBtn.disabled = true;
+
+  // Show the question immediately plus a "typing" placeholder, so it feels
+  // like a live chat rather than a form submission with a spinner.
+  const typingId = 'chat-typing-' + Date.now();
+  threadEl.insertAdjacentHTML('beforeend', `
+    <div class="chat-turn">
+      <div class="chat-q">${escapeHtml(question)}</div>
+      <div class="chat-typing" id="${typingId}">Reading the document…</div>
+    </div>`);
+  threadEl.scrollTop = threadEl.scrollHeight;
+
+  try {
+    const res = await fetch(`${BACKEND_URL}/api/analyses/${analysisId}/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question, history: chatHistoryByAnalysisId[analysisId] || [] })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Could not answer that question.');
+
+    const turn = {
+      question,
+      answer: data.answer,
+      foundInDocument: data.foundInDocument,
+      supportingQuote: data.supportingQuote,
+      locationHint: data.locationHint
+    };
+    chatHistoryByAnalysisId[analysisId] = [...(chatHistoryByAnalysisId[analysisId] || []), turn];
+    renderChatPanel(analysisId);
+  } catch (err) {
+    console.error('RFP chat error:', err.message);
+    const typingEl = document.getElementById(typingId);
+    if (typingEl) {
+      typingEl.outerHTML = `<div class="chat-a not-found">⚠ ${escapeHtml(err.message || 'Could not answer that question. Please try again.')}</div>`;
+    }
+    input.disabled = false;
+    sendBtn.disabled = false;
+    input.focus();
+  }
+}
+
+// Shared "fetch a file and trigger a browser download" helper — same
+// mechanics as downloadExport() above, generalized to take a full URL so
+// it can hit /api/proposals/:id/export.txt too.
+async function downloadFileFromUrl(url, fallbackFilename){
+  const res = await fetch(url);
+  if (!res.ok) {
+    const errBody = await res.json().catch(() => ({}));
+    throw new Error(errBody.error || `Download failed (HTTP ${res.status}).`);
+  }
+  const blob = await res.blob();
+  const disposition = res.headers.get('Content-Disposition') || '';
+  const match = /filename="([^"]+)"/.exec(disposition);
+  const filename = match ? match[1] : fallbackFilename;
+
+  const blobUrl = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = blobUrl;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(blobUrl);
+}
+
+function saveChecklistToFile(){
+  if (!lastResult) return;
+  const html = buildChecklistHtml(lastResult, currentSourceMeta.fileName || 'RFP Document');
+  const blob = new Blob([html], { type: 'text/html' });
+  const url = URL.createObjectURL(blob);
+  const baseName = (currentSourceMeta.fileName ? currentSourceMeta.fileName.replace(/\.[^.]+$/, '') : 'rfp-analysis');
+  const stamp = new Date().toISOString().slice(0,10);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${baseName}-checklist-${stamp}.html`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function buildChecklistHtml(data, sourceName){
+  const rec = (data.recommendation || 'CAUTION').toUpperCase();
+  const recColor = rec === 'GO' ? '#1f9d6b' : rec === 'NO-GO' ? '#d6453d' : '#b8860b';
+  const score = typeof data.fit_score === 'number' ? data.fit_score : '—';
+  const today = new Date().toLocaleDateString(undefined, { year:'numeric', month:'long', day:'numeric' });
+
+  const deadlineBannerHtml = data.deadline_passed === true
+    ? `<div style="background:#fdecea;border:1px solid #f3c1bd;border-radius:8px;padding:12px 16px;margin-bottom:16px;color:#c0392b;font-size:13px;font-weight:600;">⚠ Submission deadline (${escapeHtml(data.deadline_date_iso || 'unknown date')}) has already passed as of the generation date below. Confirm whether an addendum extended it.</div>`
+    : (data.deadline_passed === null || data.deadline_passed === undefined)
+      ? `<div style="background:#fff8e6;border:1px solid #f0d98c;border-radius:8px;padding:12px 16px;margin-bottom:16px;color:#8a6d1a;font-size:13px;font-weight:600;">? Could not confidently locate a submission deadline — verify manually.</div>`
+      : (data.deadline_urgent === true)
+        ? `<div style="background:#fff8e6;border:1px solid #f0d98c;border-radius:8px;padding:12px 16px;margin-bottom:16px;color:#8a6d1a;font-size:13px;font-weight:600;">⏰ Only ${escapeHtml(String(data.deadline_days_remaining))} day(s) left to submit (deadline ${escapeHtml(data.deadline_date_iso || 'unknown date')}).</div>`
+        : '';
+
+  // Phase 2, item #5 — confidence summary banner (mirrors the live view)
+  const confidenceBannerHtml = (data.confidence_summary && data.confidence_summary.total_items_scored)
+    ? (() => {
+        const cs = data.confidence_summary;
+        const needsReview = cs.low_confidence_count > 0;
+        const color = needsReview ? '#8a6d1a' : '#1f9d6b';
+        const bg = needsReview ? '#fff8e6' : '#e8f9f1';
+        const border = needsReview ? '#f0d98c' : '#bdeed7';
+        const text = needsReview
+          ? `${cs.low_confidence_count} of ${cs.total_items_scored} extracted items scored below the ${cs.review_threshold}% confidence threshold and are flagged NEEDS REVIEW (look for the 🔎 badge).`
+          : `All ${cs.total_items_scored} extracted items met the ${cs.review_threshold}% confidence threshold.`;
+        return `<div style="background:${bg};border:1px solid ${border};border-radius:8px;padding:12px 16px;margin-bottom:16px;color:${color};font-size:13px;font-weight:600;">${needsReview ? '🔎' : '✅'} ${text} Average confidence: ${cs.average_confidence ?? '—'}%.</div>`;
+      })()
+    : '';
+
+  // Per-item confidence badge for the exported static HTML (mirrors
+  // renderConfidenceBadge in the live view).
+  function confidenceBadgeHtml(item) {
+    if (!item || typeof item.confidence !== 'number') return '';
+    const low = item.needs_human_review === true;
+    const color = low ? '#b8860b' : '#888';
+    const bg = low ? '#a8720a26' : '#8881A';
+    return `<span style="font-family:monospace;font-size:10px;font-weight:700;padding:2px 8px;border-radius:5px;background:${bg};color:${color};">${low ? '🔎' : '✓'} ${item.confidence}% confidence</span>`;
+  }
+
+  // ---- Parent/child deliverables as nested sections (static HTML export) ----
+  function buildDeliverablesTwoLevel(categories) {
+    if (!Array.isArray(categories) || !categories.length) return '';
+    const totalItems = categories.reduce((sum, c) => sum + ((c.items || []).length), 0);
+    let out = `<h2>📦 Deliverables Required by RFP <span style="font-weight:400;color:#999;font-size:11px;">(${totalItems} items across ${categories.length} sections)</span></h2>`;
+    categories.forEach(cat => {
+      const items = cat.items || [];
+      out += `
+      <div style="border:1px solid #d0d9f0;border-radius:8px;margin-bottom:14px;overflow:hidden;">
+        <div style="background:#f0f4ff;padding:11px 16px;display:flex;align-items:center;gap:10px;">
+          <span style="font-weight:700;font-size:13.5px;color:#1a1a2e;">${escapeHtml(cat.category || '')}</span>
+          <span style="font-family:monospace;font-size:10.5px;color:#2f7d8c;background:#2f7d8c1f;padding:1px 8px;border-radius:9px;">${items.length} item${items.length === 1 ? '' : 's'}</span>
+          ${cat.due_date && cat.due_date !== 'N/A' ? `<span style="margin-left:auto;font-size:11px;color:#666;font-family:monospace;">📅 ${escapeHtml(cat.due_date)}</span>` : ''}
+        </div>
+        <div style="padding:10px 16px 14px;">
+          ${items.map(item => {
+            const dec = (item.decision || '').toUpperCase();
+            const decColor = dec.includes('ACTION') ? '#d6453d' : dec === 'OPTIONAL' ? '#888' : '#1f9d6b';
+            const mandColor = (item.mandatory || '').toUpperCase() === 'YES' ? '#1f9d6b' : '#888';
+            const { page, section, rest } = parseCitation(item.reason);
+            const badgesHtml = [
+              page ? `<span style="font-family:monospace;font-size:10px;font-weight:700;padding:2px 8px;border-radius:5px;background:#a8720a26;color:#b8860b;">📄 Page ${escapeHtml(page)}</span>` : '',
+              section ? `<span style="font-family:monospace;font-size:10px;font-weight:700;padding:2px 8px;border-radius:5px;background:#2f7d8c26;color:#2f7d8c;">§ ${escapeHtml(section)}</span>` : '',
+              item.source_document ? `<span style="font-family:monospace;font-size:10px;font-weight:700;padding:2px 8px;border-radius:5px;background:#b28cff26;color:#8a5fe0;">📁 ${escapeHtml(item.source_document)}</span>` : '',
+              confidenceBadgeHtml(item)
+            ].filter(Boolean).join(' ');
+            return `
+            <div style="background:#fafbfe;border:1px solid #e6eaf5;border-radius:7px;padding:10px 12px;margin-top:8px;">
+              <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:5px;">
+                <span style="font-size:12.5px;font-weight:600;color:#1a1a2e;">${escapeHtml(item.item || '')}</span>
+                <span style="flex-shrink:0;display:flex;gap:6px;">
+                  <span style="font-family:monospace;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px;background:${mandColor}1A;color:${mandColor};">${escapeHtml(item.mandatory || 'N/A')}</span>
+                  <span style="font-family:monospace;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px;background:${decColor}1A;color:${decColor};">${escapeHtml(item.decision || '—')}</span>
+                </span>
+              </div>
+              ${badgesHtml ? `<div style="margin-bottom:4px;display:flex;gap:6px;flex-wrap:wrap;">${badgesHtml}</div>` : ''}
+              <div style="font-size:11.5px;color:#666;line-height:1.5;">${escapeHtml(rest)}</div>
+            </div>`;
+          }).join('')}
+        </div>
+      </div>`;
+    });
+    return out;
+  }
+
+  function buildInsuranceTableHtml(data){
+    if (!Array.isArray(data.insurance_figures) || !data.insurance_figures.length) return '';
+    const threshold = data.insurance_threshold_used;
+    const exceeds = data.insurance_exceeds_threshold;
+    let note = (typeof exceeds === 'boolean' && typeof threshold === 'number')
+      ? `<p style="font-size:12.5px;margin-bottom:6px;color:${exceeds ? '#d6453d' : '#1f9d6b'};">${exceeds
+          ? `Highest APPLICABLE single coverage ($${(data.insurance_highest_single_coverage || 0).toLocaleString()}) exceeds your configured threshold ($${threshold.toLocaleString()}). Rows marked "Not applicable" are excluded from this comparison.`
+          : `All applicable figures are within your configured threshold ($${threshold.toLocaleString()}). Rows marked "Not applicable" are excluded from this comparison.`}</p>`
+      : '';
+    if (data.insurance_tier_needs_review) {
+      note += `<p style="font-size:12.5px;margin-bottom:10px;color:#b8860b;">⚠ Could not confidently determine which coverage tier applies from the RFP text — review manually.</p>`;
+    }
+    return `
+      <h2>🛡️ Insurance Figures Extracted</h2>
+      ${note}
+      <table class="cl-table">
+        <thead><tr><th>Coverage Type</th><th>Amount</th><th>Basis</th><th>Applies?</th></tr></thead>
+        <tbody>
+          ${data.insurance_figures.map(f => {
+            const isStatutory = f.is_statutory === true;
+            const applies = f.applies_to_this_contract !== false;
+            const amt = Number(f.amount);
+            const hasAmount = !isNaN(amt) && amt > 0;
+            const color = (applies && !isStatutory && hasAmount && threshold && amt > threshold) ? '#d6453d' : '#1f9d6b';
+            const amountDisplay = isStatutory ? 'Statutory' : (hasAmount ? `$${amt.toLocaleString()}` : '—');
+            const rowOpacity = applies ? '1' : '0.5';
+            const appliesTag = applies
+              ? `<span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px;background:#1f9d6b1A;color:#1f9d6b;">APPLIES</span>`
+              : `<span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px;background:#8881A;color:#888;" title="${escapeHtml(f.tier_note || '')}">NOT APPLICABLE</span>`;
+            return `<tr style="opacity:${rowOpacity};">
+              <td><strong>${escapeHtml(f.coverage_type || '')}</strong></td>
+              <td style="color:${color};font-weight:700;">${amountDisplay}</td>
+              <td style="color:#555;font-size:12px;">${escapeHtml(f.basis || 'not specified')}</td>
+              <td>${appliesTag}</td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>`;
+  }
+
+  function buildSectionTable(title, icon, items) {
+    if (!Array.isArray(items) || !items.length) return '';
+    return `
+    <h2>${icon} ${title}</h2>
+    <table class="cl-table">
+      <thead><tr>
+        <th style="width:22%">Checklist Item</th>
+        <th style="width:28%">Question</th>
+        <th style="width:8%;text-align:center;">Yes/No</th>
+        <th style="width:12%;text-align:center;">Decision</th>
+        <th>Reason from RFP</th>
+      </tr></thead>
+      <tbody>
+        ${items.map(item => {
+          const ans = (item.answer || '').toUpperCase();
+          const dec = (item.decision || '').toUpperCase();
+          const ansColor = ans === 'YES' ? '#1f9d6b' : ans === 'NO' ? '#d6453d' : '#888';
+          const decColor = dec === 'GO' ? '#1f9d6b' : dec === 'NO-GO' ? '#d6453d' : dec.includes('ESCALATE') ? '#b8860b' : '#888';
+          const { page, section, rest } = parseCitation(item.reason);
+          const badgesHtml = [
+            page ? `<span style="font-family:monospace;font-size:10px;font-weight:700;padding:2px 8px;border-radius:5px;background:#a8720a26;color:#b8860b;">📄 Page ${escapeHtml(page)}</span>` : '',
+            section ? `<span style="font-family:monospace;font-size:10px;font-weight:700;padding:2px 8px;border-radius:5px;background:#2f7d8c26;color:#2f7d8c;">§ ${escapeHtml(section)}</span>` : '',
+            item.source_document ? `<span style="font-family:monospace;font-size:10px;font-weight:700;padding:2px 8px;border-radius:5px;background:#b28cff26;color:#8a5fe0;">📁 ${escapeHtml(item.source_document)}</span>` : '',
+            confidenceBadgeHtml(item)
+          ].filter(Boolean).join(' ');
+          return `<tr>
+            <td><strong>${escapeHtml(item.item || '')}</strong></td>
+            <td style="color:#555;font-size:12px;">${escapeHtml(item.question || '')}</td>
+            <td style="text-align:center;font-weight:700;color:${ansColor};">${escapeHtml(item.answer || 'N/A')}</td>
+            <td style="text-align:center;"><span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px;background:${decColor}1A;color:${decColor};">${escapeHtml(item.decision || '—')}</span></td>
+            <td style="color:#555;font-size:12px;">
+              ${badgesHtml ? `<div style="margin-bottom:4px;display:flex;gap:6px;flex-wrap:wrap;">${badgesHtml}</div>` : ''}
+              ${escapeHtml(rest)}
+            </td>
+          </tr>`;
+        }).join('')}
+      </tbody>
+    </table>`;
+  }
+
+  const disqHtml = (data.disqualifiers && data.disqualifiers.length)
+    ? `<div class="disq"><strong>⚠️ Disqualifiers</strong><ul>${data.disqualifiers.map(d => `<li>${escapeHtml(d)}</li>`).join('')}</ul></div>`
+    : '';
+
+  return `<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8">
+<title>RFP Checklist — ${escapeHtml(sourceName)}</title>
+<style>
+  body{font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;color:#1a1a2e;max-width:960px;margin:40px auto;padding:0 24px;line-height:1.55;}
+  h1{font-size:22px;margin-bottom:2px;}
+  .meta{color:#777;font-size:12.5px;margin-bottom:28px;}
+  h2{font-size:14px;font-weight:700;border-bottom:2px solid #eee;padding-bottom:6px;margin:32px 0 12px;}
+  .verdict{display:flex;align-items:center;gap:18px;border:1px solid #ddd;border-radius:10px;padding:18px 20px;margin-bottom:20px;}
+  .verdict .score{font-size:30px;font-weight:700;color:${recColor};min-width:60px;text-align:center;}
+  .verdict .score small{display:block;font-size:9px;color:#999;font-weight:500;}
+  .verdict .tag{display:inline-block;font-size:11px;font-weight:700;color:${recColor};background:${recColor}1A;padding:2px 9px;border-radius:5px;margin-bottom:6px;}
+  .cl-table{width:100%;border-collapse:collapse;margin-bottom:8px;font-size:12.5px;}
+  .cl-table th{background:#f5f5f7;padding:8px 10px;text-align:left;font-size:11px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:0.4px;border-bottom:2px solid #e3e3e3;}
+  .cl-table td{padding:9px 10px;border-bottom:1px solid #eee;vertical-align:top;}
+  .cl-table tr:last-child td{border-bottom:none;}
+  .cl-table tr:hover td{background:#fafafa;}
+  .disq{background:#fdecea;border:1px solid #f3c1bd;border-radius:8px;padding:12px 16px;margin:10px 0;}
+  .disq li{color:#c0392b;font-size:13px;margin-bottom:4px;}
+  ul{margin:6px 0 6px 18px;padding:0;}
+  .footer-note{margin-top:40px;font-size:11px;color:#aaa;border-top:1px solid #eee;padding-top:10px;}
+  @media print{body{margin:0;padding:16px;} h2{page-break-before:auto;}}
+</style></head>
+<body>
+  <h1>RFP Compliance Checklist</h1>
+  <div class="meta">Source: ${escapeHtml(sourceName)} &nbsp;·&nbsp; Generated ${today}</div>
+
+  ${deadlineBannerHtml}
+  ${confidenceBannerHtml}
+
+  <div class="verdict">
+    <div class="score">${score}<small>FIT SCORE</small></div>
+    <div>
+      <div class="tag">${escapeHtml(rec)}</div>
+      <div style="font-size:13px;">${escapeHtml(data.recommendation_summary || '')}</div>
+    </div>
+  </div>
+
+  ${disqHtml}
+  ${buildDeliverablesTwoLevel(data.deliverables_checklist)}
+  ${buildInsuranceTableHtml(data)}
+  ${buildSectionTable('Financial / Accounting Checklist', '💰', data.financial_checklist)}
+  ${buildSectionTable('Legal Checklist', '⚖️', data.legal_checklist)}
+  ${buildSectionTable('Operations Checklist', '🗂️', data.operations_checklist)}
+  ${buildSectionTable('Technical Checklist', '🛠️', data.technical_checklist)}
+
+  <div class="footer-note">Generated by RFP Intelligence Portal · Gemini 3.5 Flash · Verify all terms against the original RFP before submission.</div>
+</body></html>`;
+}
+
+// ---------------------------------------------------------------------
+// HISTORY SIDEBAR — now backed by the server-side database (SQLite) via
+// /api/history instead of browser localStorage, so completed analyses
+// persist across browser clears, devices, and page reloads (Phase 1
+// item #1). The worker in server.js already saves every completed result
+// permanently; this is just reading/deleting through that same store.
+//
+// `historyCache` mirrors the server's list in memory so the rest of the
+// sidebar code (which expects loadHistory() to return synchronously) can
+// stay as-is. Call refreshHistory() any time the underlying data changes.
+// ---------------------------------------------------------------------
+let historyCache = [];
+let activeHistoryId = null;
+
+// Phase 3, item #11 — Compare RFPs side-by-side. Tracks which history
+// entries the user has checked via the sidebar checkboxes. Pure frontend
+// state — no backend call needed since /api/history already returns each
+// entry's full `data`, so a comparison table can be built entirely from
+// what's already sitting in historyCache.
+let compareSelectedIds = new Set();
+
+function loadHistory(){
+  return historyCache;
+}
+
+// Pulls a quick-glance summary out of an already-computed analysis result:
+// which deliverable sections it covers, and which RFP page numbers were
+// cited across all checklists. Purely derived from data already produced
+// by the backend (via the same parseCitation() used to render badges) —
+// no new extraction or analysis logic.
+function summarizeAnalysisForHistory(data){
+  const categories = [];
+  (data.deliverables_checklist || []).forEach(c => {
+    if (c.category && !categories.includes(c.category)) categories.push(c.category);
+  });
+
+  const pages = [];
+  const collectPages = (items) => {
+    (items || []).forEach(it => {
+      const { page } = parseCitation(it.reason);
+      if (page && !pages.includes(page)) pages.push(page);
+    });
+  };
+  (data.deliverables_checklist || []).forEach(c => collectPages(c.items));
+  collectPages(data.financial_checklist);
+  collectPages(data.legal_checklist);
+  collectPages(data.operations_checklist);
+  collectPages(data.technical_checklist);
+
+  pages.sort((a, b) => {
+    const na = parseInt(a, 10), nb = parseInt(b, 10);
+    if (!isNaN(na) && !isNaN(nb)) return na - nb;
+    return String(a).localeCompare(String(b));
+  });
+
+  const deliverableCount = (data.deliverables_checklist || []).reduce((sum, c) => sum + ((c.items || []).length), 0);
+  const checklistCount = ['financial_checklist','legal_checklist','operations_checklist','technical_checklist']
+    .reduce((sum, key) => sum + (Array.isArray(data[key]) ? data[key].length : 0), 0);
+
+  return { categories, pages, deliverableCount, checklistCount };
+}
+
+// Re-fetches the completed-analysis list from the server and re-derives
+// the summary fields (categories/pages/counts) the sidebar displays.
+async function refreshHistory(){
+  try {
+    const res = await fetch(`${BACKEND_URL}/api/history`);
+    const rows = await res.json();
+    if (!res.ok) throw new Error(rows.error || 'Could not load history.');
+    historyCache = rows.map(row => {
+      const summary = summarizeAnalysisForHistory(row.data || {});
+      return {
+        id: row.id,
+        batchId: row.batchId || null,
+        fileName: row.fileName,
+        savedAt: row.savedAt,
+        score: row.score,
+        recommendation: row.recommendation,
+        outcome: row.outcome || 'pending',
+        categories: summary.categories,
+        pages: summary.pages,
+        deliverableCount: summary.deliverableCount,
+        checklistCount: summary.checklistCount,
+        data: row.data
+      };
+    });
+  } catch (e) {
+    // backend unreachable or DB read failed — keep whatever we had cached
+    // rather than wiping the sidebar out from under the user
+  }
+  renderHistorySidebar();
+}
+
+// Phase 5, item #21 — PATCH the outcome for a saved analysis, then update
+// the button states in place (no full re-render needed) and refresh the
+// history cache in the background so historyCache.outcome stays correct
+// for the next time this result is opened, and so the dashboard's win
+// rate reflects it next time it's opened too.
+async function handleOutcomeClick(analysisId, outcome, btnEl){
+  if (!analysisId || !outcome) return;
+  const row = btnEl.closest('.outcome-row');
+  row.querySelectorAll('.outcome-btn').forEach(b => b.classList.toggle('active', b === btnEl));
+  try {
+    const res = await fetch(`${BACKEND_URL}/api/history/${analysisId}/outcome`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ outcome })
+    });
+    if (!res.ok) throw new Error('Could not save outcome.');
+  } catch (err) {
+    console.error('Set outcome error:', err.message);
+  }
+  refreshHistory();
+}
+
+async function removeHistoryEntry(id){
+  if (activeHistoryId === id) activeHistoryId = null;
+  compareSelectedIds.delete(id);
+  try {
+    await fetch(`${BACKEND_URL}/api/history/${id}`, { method: 'DELETE' });
+  } catch (e) { /* fail silently, feature is non-critical */ }
+  await refreshHistory();
+}
+
+async function clearHistory(){
+  activeHistoryId = null;
+  compareSelectedIds.clear();
+  try {
+    await fetch(`${BACKEND_URL}/api/history`, { method: 'DELETE' });
+  } catch (e) { /* fail silently, feature is non-critical */ }
+  await refreshHistory();
+}
+
+function setActiveHistoryItem(id){
+  activeHistoryId = id;
+  document.querySelectorAll('.history-item').forEach(el => {
+    el.classList.toggle('active', el.dataset.id === id);
+  });
+}
+
+function fmtHistoryDate(iso){
+  try {
+    const d = new Date(iso);
+    return d.toLocaleDateString(undefined, { month:'short', day:'numeric' }) + ' · ' +
+           d.toLocaleTimeString(undefined, { hour:'numeric', minute:'2-digit' });
+  } catch (e) { return ''; }
+}
+
+function renderHistorySidebar(){
+  const list = loadHistory();
+  const holder = document.getElementById('historyListHolder');
+  const countEl = document.getElementById('historyCount');
+  countEl.textContent = String(list.length);
+
+  if (!list.length){
+    holder.innerHTML = `
+      <div class="history-empty">
+        <div class="g">🗂️</div>
+        <p>Nothing analysed yet.<br>Completed analyses will be indexed here.</p>
+      </div>`;
+    return;
+  }
+
+  const itemsHtml = list.map((h, i) => {
+    const rec = (h.recommendation || 'CAUTION').toUpperCase();
+    const recClass = rec === 'GO' ? 'go' : rec === 'NO-GO' ? 'nogo' : 'caution';
+    const idx = String(list.length - i).padStart(3, '0');
+
+    const categories = h.categories || [];
+    const catShort = categories.slice(0, 2).join(' · ');
+    const catMore = categories.length > 2 ? ` +${categories.length - 2}` : '';
+
+    const pages = h.pages || [];
+    const pageShort = pages.slice(0, 5).join(', ');
+    const pageMore = pages.length > 5 ? '…' : '';
+
+    return `
+      <li class="history-item ${recClass} ${h.id === activeHistoryId ? 'active' : ''}" data-id="${h.id}">
+        <input type="checkbox" class="h-compare-check" data-compare="${h.id}" title="Select for side-by-side compare" ${compareSelectedIds.has(h.id) ? 'checked' : ''} />
+        <button class="h-remove" data-remove="${h.id}" title="Remove from history">✕</button>
+        <div class="h-top">
+          <span class="h-idx">CASE-${idx}</span>
+          <span class="h-score">${typeof h.score === 'number' ? h.score : '—'}</span>
+        </div>
+        <div class="h-name" title="${escapeHtml(h.fileName)}">${escapeHtml(h.fileName)}</div>
+        <div class="h-date">${fmtHistoryDate(h.savedAt)}${typeof h.deliverableCount === 'number' && h.deliverableCount ? ` · ${h.deliverableCount} deliverables` : ''}</div>
+        ${categories.length ? `<div class="h-cats" title="${escapeHtml(categories.join(', '))}">📦 ${escapeHtml(catShort)}${catMore}</div>` : ''}
+        ${pages.length ? `<div class="h-pages" title="Pages cited: ${escapeHtml(pages.join(', '))}">📄 p. ${escapeHtml(pageShort)}${pageMore}</div>` : ''}
+      </li>`;
+  }).join('');
+
+  holder.innerHTML = `
+    <ul class="history-list">${itemsHtml}</ul>
+    ${compareSelectedIds.size >= 2 ? `<button class="history-clear compare-btn" id="compareSelectedBtn">📊 Compare Selected (${compareSelectedIds.size})</button>` : ''}
+    <button class="history-clear" id="historyClearBtn">clear all history</button>`;
+
+  holder.querySelectorAll('.h-compare-check').forEach(cb => {
+    cb.addEventListener('click', (e) => e.stopPropagation());
+    cb.addEventListener('change', (e) => {
+      const id = cb.dataset.compare;
+      if (cb.checked) compareSelectedIds.add(id); else compareSelectedIds.delete(id);
+      renderHistorySidebar();
+    });
+  });
+  const compareBtn = document.getElementById('compareSelectedBtn');
+  if (compareBtn) compareBtn.addEventListener('click', () => {
+    renderComparisonView(Array.from(compareSelectedIds));
+    closeHistorySidebarOnMobile();
+  });
+
+  holder.querySelectorAll('.history-item').forEach(el => {
+    el.addEventListener('click', (e) => {
+      if (e.target.closest('[data-remove]')) return;
+      const id = el.dataset.id;
+      const entry = loadHistory().find(h => h.id === id);
+      if (!entry) return;
+      // Restore the sibling tab strip if this document was analysed as
+      // part of a multi-file batch, so switching between them still works.
+      currentBatchEntries = entry.batchId
+        ? loadHistory().filter(h => h.batchId === entry.batchId).reverse()
+        : [entry];
+      renderResults(entry.data, { id: entry.id, fileName: entry.fileName, savedAt: entry.savedAt, fromHistory: true, outcome: entry.outcome });
+      setActiveHistoryItem(id);
+      closeHistorySidebarOnMobile();
+    });
+  });
+  holder.querySelectorAll('[data-remove]').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      removeHistoryEntry(btn.dataset.remove);
+    });
+  });
+  const clearBtn = document.getElementById('historyClearBtn');
+  if (clearBtn) clearBtn.addEventListener('click', clearHistory);
+}
+
+// ---------------------------------------------------------------------
+// PHASE 3, item #11 — Compare RFPs side-by-side.
+// Builds a table view across several past analyses at once, one column
+// per RFP, using ONLY data every one of them already has (fit score,
+// recommendation, deadline, insurance, confidence, cross-check status).
+// No new backend endpoint — historyCache already holds each entry's full
+// `data` (see refreshHistory), so this is pure client-side rendering.
+// ---------------------------------------------------------------------
+function renderComparisonView(ids){
+  const entries = ids.map(id => loadHistory().find(h => h.id === id)).filter(Boolean);
+  if (entries.length < 2) return;
+
+  // One row-definition per metric, each knowing how to pull/format its own
+  // value out of a history entry's `data` — keeps the table body below a
+  // simple loop instead of one giant hand-written <tr> per metric.
+  const rows = [
+    { label: 'Recommendation', get: e => {
+      const rec = (e.recommendation || 'CAUTION').toUpperCase();
+      const cls = rec === 'GO' ? 'go' : rec === 'NO-GO' ? 'nogo' : 'caution';
+      return `<span class="cmp-rec ${cls}">${escapeHtml(rec)}</span>`;
+    }},
+    { label: 'Fit Score', get: e => typeof e.score === 'number' ? `${e.score}/100` : '—' },
+    { label: 'Deadline', get: e => escapeHtml(e.data?.deadline_date_iso || 'Not found') },
+    { label: 'Deadline status', get: e => {
+      if (e.data?.deadline_passed === true) return '⚠ Passed';
+      if (e.data?.deadline_urgent === true) return `⏰ Urgent (${e.data.deadline_days_remaining ?? '?'}d left)`;
+      if (e.data?.deadline_passed === false) return '✓ Open';
+      return '? Unknown';
+    }},
+    { label: 'Highest insurance figure', get: e => {
+      const v = e.data?.insurance_highest_single_coverage;
+      return typeof v === 'number' ? `$${v.toLocaleString()}` : '—';
+    }},
+    { label: 'Avg. confidence', get: e => {
+      const v = e.data?.confidence_summary?.average_confidence;
+      return typeof v === 'number' ? `${v}%` : '—';
+    }},
+    { label: 'Items needing review', get: e => {
+      const v = e.data?.confidence_summary?.low_confidence_count;
+      const t = e.data?.confidence_summary?.total_items_scored;
+      return typeof v === 'number' ? `${v} of ${t ?? '?'}` : '—';
+    }},
+    { label: 'Disqualifiers', get: e => {
+      const n = Array.isArray(e.data?.disqualifiers) ? e.data.disqualifiers.length : 0;
+      return n ? `⚠ ${n}` : '0';
+    }},
+    { label: 'Cross-check (2nd model)', get: e => {
+      const cc = e.data?.cross_check;
+      if (!cc || cc.status === 'skipped') return '—';
+      if (cc.status === 'disagreement') return `⚠ ${cc.disagreement_count} disagreement(s)`;
+      if (cc.status === 'ok') return '✓ Confirmed';
+      return cc.status === 'error' ? '✗ Error' : '—';
+    }},
+    { label: 'Deliverables', get: e => typeof e.deliverableCount === 'number' ? String(e.deliverableCount) : '—' }
+  ];
+
+  const headerCells = entries.map(e => `<th title="${escapeHtml(e.fileName)}">${escapeHtml(e.fileName)}</th>`).join('');
+  const bodyRows = rows.map(r => `
+    <tr>
+      <td class="cmp-label">${escapeHtml(r.label)}</td>
+      ${entries.map(e => `<td>${r.get(e)}</td>`).join('')}
+    </tr>`).join('');
+
+  resultsPanel.innerHTML = `
+    <div class="compare-view">
+      <a class="reset-link" id="compareBackLink" style="margin-bottom:16px;display:inline-block;">← Back</a>
+      <h3 class="block-title">📊 Comparing ${entries.length} RFPs</h3>
+      <div class="compare-table-wrap">
+        <table class="compare-table">
+          <thead><tr><th></th>${headerCells}</tr></thead>
+          <tbody>${bodyRows}</tbody>
+        </table>
+      </div>
+    </div>`;
+
+  document.getElementById('compareBackLink').addEventListener('click', () => {
+    if (activeHistoryId) {
+      const entry = loadHistory().find(h => h.id === activeHistoryId);
+      if (entry) { renderResults(entry.data, { id: entry.id, fileName: entry.fileName, savedAt: entry.savedAt, fromHistory: true, outcome: entry.outcome }); return; }
+    }
+    renderEmpty();
+  });
+}
+
+// mobile history drawer toggle
+const historySidebarEl = document.getElementById('historySidebar');
+const historyBackdropEl = document.getElementById('historyBackdrop');
+const historyToggleEl = document.getElementById('historyToggle');
+function openHistorySidebarOnMobile(){
+  historySidebarEl.classList.add('open');
+  historyBackdropEl.classList.add('open');
+}
+function closeHistorySidebarOnMobile(){
+  historySidebarEl.classList.remove('open');
+  historyBackdropEl.classList.remove('open');
+}
+historyToggleEl.addEventListener('click', openHistorySidebarOnMobile);
+historyBackdropEl.addEventListener('click', closeHistorySidebarOnMobile);
+
+// ---------------------------------------------------------------------
+// Home dashboard capability-card actions. Delegated on document (rather
+// than bound per-render) because the home dashboard markup gets replaced
+// wholesale by renderEmpty()/renderResults() innerHTML swaps — a
+// delegated listener survives that, no re-binding needed each render.
+// ---------------------------------------------------------------------
+document.addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-home-action]');
+  if (!btn) return;
+  const action = btn.dataset.homeAction;
+  if (action === 'focus-upload') {
+    dropzone.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    dropzone.classList.add('home-pulse');
+    setTimeout(() => dropzone.classList.remove('home-pulse'), 2000);
+  } else if (action === 'folder-upload') {
+    document.getElementById('folderUploadBtn').click();
+  } else if (action === 'open-library') {
+    openLibraryModal();
+  } else if (action === 'open-dashboard') {
+    openDashboardModal();
+  } else if (action === 'focus-history') {
+    openHistorySidebarOnMobile();
+    historySidebarEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    historySidebarEl.classList.add('home-pulse');
+    setTimeout(() => historySidebarEl.classList.remove('home-pulse'), 2000);
+  }
+});
+
+refreshHistory();
+
+// ===========================================================================
+// Phase 4, item #13 — Past-proposal RAG library (frontend).
+// ===========================================================================
+const libraryToggleEl = document.getElementById('libraryToggle');
+const libraryBackdropEl = document.getElementById('libraryBackdrop');
+const libraryModalEl = document.getElementById('libraryModal');
+const libraryCloseBtnEl = document.getElementById('libraryCloseBtn');
+const libraryDropzoneEl = document.getElementById('libraryDropzone');
+const libraryFileInputEl = document.getElementById('libraryFileInput');
+const libraryListHolderEl = document.getElementById('libraryListHolder');
+const libraryCountEl = document.getElementById('libraryCount');
+const librarySearchInputEl = document.getElementById('librarySearchInput');
+const librarySearchBtnEl = document.getElementById('librarySearchBtn');
+const libraryResultsHolderEl = document.getElementById('libraryResultsHolder');
+
+function openLibraryModal(){
+  libraryModalEl.classList.add('open');
+  libraryBackdropEl.classList.add('open');
+  refreshLibraryList();
+}
+function closeLibraryModal(){
+  libraryModalEl.classList.remove('open');
+  libraryBackdropEl.classList.remove('open');
+}
+libraryToggleEl.addEventListener('click', openLibraryModal);
+libraryCloseBtnEl.addEventListener('click', closeLibraryModal);
+libraryBackdropEl.addEventListener('click', closeLibraryModal);
+
+// ===========================================================================
+// Phase 5, item #21 — Aggregate dashboard (frontend).
+// Pulls GET /api/dashboard (server-computed rollups across every completed
+// analysis — see db.getDashboardStats) and renders it into simple stat
+// tiles + bar breakdowns. Re-fetched fresh every time the modal opens, so
+// it's always current with whatever outcomes have been set since the last
+// time someone looked.
+// ===========================================================================
+const dashboardToggleEl = document.getElementById('dashboardToggle');
+const dashboardBackdropEl = document.getElementById('dashboardBackdrop');
+const dashboardModalEl = document.getElementById('dashboardModal');
+const dashboardCloseBtnEl = document.getElementById('dashboardCloseBtn');
+const dashboardBodyEl = document.getElementById('dashboardBody');
+
+function openDashboardModal(){
+  dashboardModalEl.classList.add('open');
+  dashboardBackdropEl.classList.add('open');
+  refreshDashboard();
+}
+function closeDashboardModal(){
+  dashboardModalEl.classList.remove('open');
+  dashboardBackdropEl.classList.remove('open');
+}
+dashboardToggleEl.addEventListener('click', openDashboardModal);
+dashboardCloseBtnEl.addEventListener('click', closeDashboardModal);
+dashboardBackdropEl.addEventListener('click', closeDashboardModal);
+
+async function refreshDashboard(){
+  dashboardBodyEl.innerHTML = '<div class="dash-empty">Loading…</div>';
+  try {
+    const res = await fetch(`${BACKEND_URL}/api/dashboard`);
+    if (!res.ok) throw new Error('Could not load dashboard.');
+    const stats = await res.json();
+    renderDashboard(stats);
+  } catch (err) {
+    dashboardBodyEl.innerHTML = `<div class="dash-empty">Could not load dashboard: ${escapeHtml(err.message)}</div>`;
+  }
+}
+
+function renderDashboard(stats){
+  if (!stats.totalAnalyses) {
+    dashboardBodyEl.innerHTML = '<div class="dash-empty">No completed analyses yet — run an RFP analysis to start building your dashboard.</div>';
+    return;
+  }
+
+  const rec = stats.recommendationCounts || {};
+  const oc = stats.outcomeCounts || {};
+  const maxRec = Math.max(rec.GO || 0, rec.CAUTION || 0, rec['NO-GO'] || 0, 1);
+  const maxOc = Math.max(oc.won || 0, oc.lost || 0, oc.no_bid || 0, oc.pending || 0, 1);
+
+  const recBar = (label, key, cls) => `
+    <div class="dash-bar-row">
+      <span class="db-label">${label}</span>
+      <div class="dash-bar-track"><div class="dash-bar-fill ${cls}" style="width:${Math.round(((rec[key] || 0) / maxRec) * 100)}%"></div></div>
+      <span class="db-count">${rec[key] || 0}</span>
+    </div>`;
+  const ocBar = (label, key, cls) => `
+    <div class="dash-bar-row">
+      <span class="db-label">${label}</span>
+      <div class="dash-bar-track"><div class="dash-bar-fill ${cls}" style="width:${Math.round(((oc[key] || 0) / maxOc) * 100)}%"></div></div>
+      <span class="db-count">${oc[key] || 0}</span>
+    </div>`;
+
+  dashboardBodyEl.innerHTML = `
+    <div class="dash-grid">
+      <div class="dash-tile"><div class="dt-value">${stats.totalAnalyses}</div><div class="dt-label">RFPs Analysed</div></div>
+      <div class="dash-tile dt-score"><div class="dt-value">${stats.averageFitScore ?? '—'}</div><div class="dt-label">Avg Fit Score</div></div>
+      <div class="dash-tile dt-winrate"><div class="dt-value">${stats.winRate === null ? '—' : stats.winRate + '%'}</div><div class="dt-label">Win Rate${stats.decidedCount ? ` (${stats.decidedCount} decided)` : ''}</div></div>
+      <div class="dash-tile"><div class="dt-value">${stats.totalRisksFlagged}</div><div class="dt-label">Risks Flagged${stats.highRisksFlagged ? ` (${stats.highRisksFlagged} high)` : ''}</div></div>
+    </div>
+
+    <div class="dash-section-label">Recommendation breakdown</div>
+    ${recBar('GO', 'GO', 'go')}
+    ${recBar('CAUTION', 'CAUTION', 'caution')}
+    ${recBar('NO-GO', 'NO-GO', 'nogo')}
+
+    <div class="dash-section-label">Outcome breakdown</div>
+    ${ocBar('Won', 'won', 'won')}
+    ${ocBar('Lost', 'lost', 'lost')}
+    ${ocBar('No-bid', 'no_bid', 'no_bid')}
+    ${ocBar('Pending', 'pending', 'pending')}
+  `;
+}
+
+
+libraryDropzoneEl.addEventListener('click', () => libraryFileInputEl.click());
+libraryDropzoneEl.addEventListener('dragover', (e) => { e.preventDefault(); });
+libraryDropzoneEl.addEventListener('drop', (e) => {
+  e.preventDefault();
+  if (e.dataTransfer?.files?.length) handleLibraryFiles(e.dataTransfer.files);
+});
+libraryFileInputEl.addEventListener('change', (e) => {
+  if (e.target.files?.length) handleLibraryFiles(e.target.files);
+  libraryFileInputEl.value = '';
+});
+
+// In-memory view of documents currently shown, keyed by documentId, so we
+// can patch a single row's status while its ingest job is still polling
+// without re-fetching + re-rendering the entire list on every tick.
+let libraryDocsById = new Map();
+
+async function refreshLibraryList(){
+  try {
+    const res = await fetch(`${BACKEND_URL}/api/proposals/library`);
+    if (!res.ok) throw new Error('Could not load library.');
+    const docs = await res.json();
+    libraryDocsById = new Map(docs.map(d => [d.id, d]));
+    renderLibraryList();
+  } catch (err) {
+    console.error('Library list error:', err.message);
+  }
+}
+
+function renderLibraryList(){
+  const docs = Array.from(libraryDocsById.values());
+  libraryCountEl.textContent = docs.length;
+  if (docs.length === 0) {
+    libraryListHolderEl.innerHTML = '<li class="library-empty">No past proposals uploaded yet.</li>';
+    return;
+  }
+  libraryListHolderEl.innerHTML = docs.map(d => `
+    <li class="library-item" data-doc-id="${d.id}">
+      <div>
+        <div class="li-name">${escapeHtml(d.fileName)}${d.ocrUsed ? ' <span title="Extracted via vision OCR (scanned document)">🔍</span>' : ''}</div>
+        <div class="li-meta">${d.status === 'ready' ? `${d.chunkCount} chunk${d.chunkCount === 1 ? '' : 's'} indexed` : (d.error ? escapeHtml(d.error) : 'processing…')}</div>
+      </div>
+      <div class="library-item-right">
+        <span class="library-status ${d.status}">${d.status}</span>
+        <button class="library-remove" title="Remove from library" data-remove-id="${d.id}">✕</button>
+      </div>
+    </li>
+  `).join('');
+
+  libraryListHolderEl.querySelectorAll('[data-remove-id]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const id = btn.getAttribute('data-remove-id');
+      btn.disabled = true;
+      try {
+        await fetch(`${BACKEND_URL}/api/proposals/library/${id}`, { method: 'DELETE' });
+        libraryDocsById.delete(id);
+        renderLibraryList();
+      } catch (err) {
+        console.error('Library remove error:', err.message);
+        btn.disabled = false;
+      }
+    });
+  });
+}
+
+async function handleLibraryFiles(fileList){
+  for (const file of Array.from(fileList)) {
+    uploadOneLibraryFile(file); // fire in parallel; each tracks its own row
+  }
+}
+
+async function uploadOneLibraryFile(file){
+  // Optimistic placeholder row so the user sees the file immediately,
+  // before the server has even created the real document id.
+  const tempId = `pending-${crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2)}`;
+  libraryDocsById.set(tempId, { id: tempId, fileName: file.name, status: 'queued', chunkCount: 0 });
+  renderLibraryList();
+
+  try {
+    const fd = new FormData();
+    fd.append('file', file);
+    const res = await fetch(`${BACKEND_URL}/api/proposals/library`, { method: 'POST', body: fd });
+    const body = await res.json();
+    if (!res.ok) throw new Error(body.error || 'Upload failed.');
+
+    libraryDocsById.delete(tempId);
+    libraryDocsById.set(body.documentId, { id: body.documentId, fileName: body.fileName, status: 'active', chunkCount: 0, ocrUsed: !!body.ocrUsed });
+    renderLibraryList();
+
+    await pollLibraryIngestJob(body.jobId, body.documentId);
+  } catch (err) {
+    libraryDocsById.set(tempId, { id: tempId, fileName: file.name, status: 'failed', chunkCount: 0, error: err.message });
+    renderLibraryList();
+  }
+}
+
+async function pollLibraryIngestJob(jobId, documentId){
+  const POLL_MS = 2000;
+  const MAX_ATTEMPTS = 150; // 5 minutes
+  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/jobs/${jobId}`);
+      const job = await res.json();
+      if (job.status === 'completed' || job.status === 'failed') {
+        // Re-fetch the document row itself (not the generic job row) since
+        // that's where chunkCount/status for the LIBRARY UI actually lives.
+        await refreshLibraryList();
+        return;
+      }
+    } catch (err) {
+      console.error('Library ingest poll error:', err.message);
+    }
+    await new Promise(r => setTimeout(r, POLL_MS));
+  }
+}
+
+librarySearchBtnEl.addEventListener('click', runLibrarySearch);
+librarySearchInputEl.addEventListener('keydown', (e) => { if (e.key === 'Enter') runLibrarySearch(); });
+
+async function runLibrarySearch(){
+  const query = librarySearchInputEl.value.trim();
+  if (query.length < 3) return;
+  librarySearchBtnEl.disabled = true;
+  librarySearchBtnEl.textContent = 'Searching…';
+  libraryResultsHolderEl.innerHTML = '';
+  try {
+    const res = await fetch(`${BACKEND_URL}/api/proposals/library/search`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query, topK: 5 })
+    });
+    const body = await res.json();
+    if (!res.ok) throw new Error(body.error || 'Search failed.');
+
+    if (body.results.length === 0) {
+      libraryResultsHolderEl.innerHTML = '<div class="library-empty">No matches yet — upload some past proposals first.</div>';
+    } else {
+      libraryResultsHolderEl.innerHTML = body.results.map(r => `
+        <div class="library-result">
+          <div class="library-result-top">
+            <span class="lr-file">${escapeHtml(r.fileName)}</span>
+            <span class="lr-score">match: ${(r.score * 100).toFixed(1)}%</span>
+          </div>
+          <div class="library-result-text">${escapeHtml(r.text)}</div>
+        </div>
+      `).join('');
+    }
+  } catch (err) {
+    libraryResultsHolderEl.innerHTML = `<div class="library-empty">${escapeHtml(err.message)}</div>`;
+  } finally {
+    librarySearchBtnEl.disabled = false;
+    librarySearchBtnEl.textContent = 'Search';
+  }
+}
+</script>
+
+</body>
+</html>
